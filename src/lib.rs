@@ -378,11 +378,11 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let html = body_of(response).await;
         assert!(html.contains("Bắt đầu bài 1"));
-        assert!(html.contains("12 bài"));
-        assert!(html.contains("Đếm"));
-        assert!(html.contains("Phép cộng"));
-        assert!(html.contains("Đếm sao"));
-        assert!(html.contains("Số còn thiếu"));
+        assert!(html.contains("54 bài"));
+        assert!(html.contains("Các số từ 0 đến 10"));
+        assert!(html.contains("Cộng trừ trong phạm vi 10"));
+        assert!(html.contains("Các số đến 100"));
+        assert!(html.contains("Bài 1. Số 0 đến 5"));
         assert!(html.contains("/profiles/1/bai/1"));
     }
 
