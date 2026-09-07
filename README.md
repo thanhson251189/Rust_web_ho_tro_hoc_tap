@@ -10,7 +10,7 @@ Read `AGENTS.md` before any edit.
 - Grade 1 only: Toan, Tieng Viet, Tieng Anh (KNTT as the lesson outline).
 - Google login for the parent (not wired yet).
 - Netflix-style profile picker, maximum 2 child profiles per account.
-- After opening a profile: hub of 3 grade-1 subjects (Toán / Tiếng Việt / Tiếng Anh) and 5 tap-to-answer lessons each.
+- After opening a profile: hub of 3 grade-1 subjects (Toán / Tiếng Việt / Tiếng Anh) and 12 tap-to-answer lessons each, grouped by KNTT unit.
 - Profiles stored in `data/app.sqlite` when you `cargo run`.
 
 ## Out of scope

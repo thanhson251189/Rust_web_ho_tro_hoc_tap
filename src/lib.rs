@@ -364,7 +364,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn math_subject_lists_five_lessons_and_start_cta() {
+    async fn math_subject_lists_units_and_start_cta() {
         let app = add_an(test_app()).await;
         let response = app
             .oneshot(
@@ -378,11 +378,11 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let html = body_of(response).await;
         assert!(html.contains("Bắt đầu bài 1"));
-        assert!(html.contains("Đếm đến 5"));
+        assert!(html.contains("12 bài"));
+        assert!(html.contains("Đếm"));
+        assert!(html.contains("Phép cộng"));
+        assert!(html.contains("Đếm sao"));
         assert!(html.contains("Số còn thiếu"));
-        assert!(html.contains("Cộng trong phạm vi 10"));
-        assert!(html.contains("Trừ trong phạm vi 10"));
-        assert!(html.contains("So sánh số"));
         assert!(html.contains("/profiles/1/bai/1"));
     }
 
