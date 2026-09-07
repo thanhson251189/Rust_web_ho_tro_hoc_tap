@@ -1,8 +1,6 @@
 pub mod store;
 
-use crate::store::{
-    add_profile, list_profiles, upsert_user, StoreError, MAX_PROFILES_PER_USER,
-};
+use crate::store::{add_profile, list_profiles, upsert_user, StoreError, MAX_PROFILES_PER_USER};
 use axum::{
     extract::{Path, State},
     response::{Html, Redirect},
