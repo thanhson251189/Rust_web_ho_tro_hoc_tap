@@ -8,12 +8,10 @@ Read that file before any edit. Do not substitute https://github.com/google/eng-
 
 ## Commands in this repo
 
-No crate yet. Do not invent commands. Fill these when the Axum crate lands.
-
 ```text
-test:
-lint / format:
-dev / run:
+test: cargo test
+lint / format: cargo fmt --check && cargo clippy --all-targets -- -D warnings
+dev / run: cargo run
 ```
 
 ## Local only

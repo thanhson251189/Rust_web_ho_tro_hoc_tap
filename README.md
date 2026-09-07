@@ -11,7 +11,7 @@ Read `AGENTS.md` before any edit.
 - Google login for the parent.
 - Netflix-style profile picker, maximum 2 child profiles per account.
 - Progress stored per profile.
-- Stack to land next: Axum + HTML templates + SQLite.
+- Stack: Axum now; HTML templates and SQLite later.
 
 ## Out of scope
 
@@ -20,8 +20,11 @@ Read `AGENTS.md` before any edit.
 - Billing, plans, or school/class features.
 - Extra subjects or grades until the first three work.
 
-## Status
+## Run
 
-Repo bootstrap only. No app server yet.
+```text
+cargo test
+cargo run
+```
 
-Commands for test / lint / run will be filled in `AGENTS.md` when the Rust crate exists.
+Open http://127.0.0.1:3000 — the page is the greeting `Xin chào` until lessons exist.
