@@ -9,8 +9,10 @@ use axum::{
 };
 use rusqlite::Connection;
 use serde::Deserialize;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
+pub const DEFAULT_DB_PATH: &str = "data/app.sqlite";
 const LOCAL_PARENT_SUB: &str = "local-dev";
 const AVATARS: &[&str] = &["robot", "cat", "bear", "fox"];
 
@@ -22,7 +24,14 @@ pub struct AppState {
 
 impl AppState {
     pub fn in_memory() -> Result<Self, StoreError> {
-        let conn = store::open_memory()?;
+        Self::from_conn(store::open_memory()?)
+    }
+
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, StoreError> {
+        Self::from_conn(store::open_file(path)?)
+    }
+
+    fn from_conn(conn: Connection) -> Result<Self, StoreError> {
         let user = upsert_user(&conn, LOCAL_PARENT_SUB, "local@family")?;
         Ok(Self {
             user_id: user.id,

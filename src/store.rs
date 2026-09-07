@@ -1,4 +1,5 @@
 use rusqlite::{params, Connection, OptionalExtension};
+use std::path::Path;
 
 pub const MAX_PROFILES_PER_USER: usize = 2;
 
@@ -33,6 +34,18 @@ impl From<rusqlite::Error> for StoreError {
 
 pub fn open_memory() -> Result<Connection, StoreError> {
     let conn = Connection::open_in_memory()?;
+    migrate(&conn)?;
+    Ok(conn)
+}
+
+pub fn open_file(path: impl AsRef<Path>) -> Result<Connection, StoreError> {
+    let path = path.as_ref();
+    if let Some(dir) = path.parent() {
+        if !dir.as_os_str().is_empty() {
+            std::fs::create_dir_all(dir).map_err(|err| StoreError::Db(err.to_string()))?;
+        }
+    }
+    let conn = Connection::open(path)?;
     migrate(&conn)?;
     Ok(conn)
 }
@@ -193,5 +206,34 @@ mod tests {
             add_profile(&conn, 99, "An", "robot"),
             Err(StoreError::UserNotFound)
         );
+    }
+
+    #[test]
+    fn file_keeps_profiles_after_reopen() {
+        let path = std::env::temp_dir().join(format!(
+            "ho_tro_persist_{}_{}.sqlite",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = std::fs::remove_file(&path);
+
+        {
+            let conn = open_file(&path).unwrap();
+            let parent = upsert_user(&conn, "sub-a", "a@example.com").unwrap();
+            add_profile(&conn, parent.id, "An", "robot").unwrap();
+        }
+
+        {
+            let conn = open_file(&path).unwrap();
+            let parent = upsert_user(&conn, "sub-a", "a@example.com").unwrap();
+            let profiles = list_profiles(&conn, parent.id).unwrap();
+            assert_eq!(profiles.len(), 1);
+            assert_eq!(profiles[0].name, "An");
+        }
+
+        let _ = std::fs::remove_file(&path);
     }
 }

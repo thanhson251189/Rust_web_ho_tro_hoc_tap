@@ -5,6 +5,9 @@
 target/
 **/*.rs.bk
 
+data/*.sqlite
+data/*.sqlite-*
+
 .DS_Store
 Thumbs.db
 .idea/
