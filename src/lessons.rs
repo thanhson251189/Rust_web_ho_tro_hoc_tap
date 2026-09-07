@@ -25,8 +25,8 @@ impl Subject {
     pub fn hint(self) -> &'static str {
         match self {
             Subject::Toan => "Bám SGK KNTT tập 1–2",
-            Subject::TiengViet => "Chữ, vần, từ, câu",
-            Subject::TiengAnh => "Hello, số, màu, con vật",
+            Subject::TiengViet => "Bám SGK KNTT tập 1–2",
+            Subject::TiengAnh => "Global Success 16 unit",
         }
     }
 
@@ -111,7 +111,7 @@ macro_rules! L {
 // Original tap-to-answer items aligned to SGK Toán 1 KNTT (tập 1–2) lesson titles.
 // Do not host or copy textbook pages/art.
 #[rustfmt::skip]
-const LESSONS: [Lesson; 78] = [
+const LESSONS: [Lesson; 126] = [
     // Chủ đề 1 — Các số từ 0 đến 10
     L!(1, Subject::Toan, "Các số từ 0 đến 10", "Bài 1. Số 0 đến 5", "Có bao nhiêu ngôi sao?", Picture::Stars(3), ["3", "2", "4", "1"], 0),
     L!(2, Subject::Toan, "Các số từ 0 đến 10", "Bài 1. Không có quả nào", "Có bao nhiêu quả táo?", Picture::Apples(0), ["1", "0", "2", "3"], 1),
@@ -176,32 +176,81 @@ const LESSONS: [Lesson; 78] = [
     L!(52, Subject::Toan, "Ôn tập cuối năm", "Bài 38. Ôn phạm vi 10", "6 + 3 = ?", Picture::None, ["8", "9", "3", "63"], 1),
     L!(53, Subject::Toan, "Ôn tập cuối năm", "Bài 39. Ôn phạm vi 100", "50 + 20 = ?", Picture::None, ["30", "70", "5020", "52"], 1),
     L!(54, Subject::Toan, "Ôn tập cuối năm", "Bài 40. Ôn đo lường", "Đồng hồ dùng để làm gì?", Picture::None, ["đo độ dài", "xem giờ", "đếm táo", "vẽ hình"], 1),
-    // Tiếng Việt — starter (ids 55–66)
-    L!(55, Subject::TiengViet, "Chữ cái", "Chữ A", "Đâu là chữ A?", Picture::None, ["O", "A", "U", "I"], 1),
-    L!(56, Subject::TiengViet, "Chữ cái", "Chữ B", "Đâu là chữ B?", Picture::None, ["B", "D", "P", "R"], 0),
-    L!(57, Subject::TiengViet, "Chữ cái", "Chữ M", "Đâu là chữ M?", Picture::None, ["N", "W", "M", "H"], 2),
-    L!(58, Subject::TiengViet, "Âm đầu", "Âm b", "Từ nào bắt đầu bằng chữ B?", Picture::None, ["mèo", "cá", "nhà", "bố"], 3),
-    L!(59, Subject::TiengViet, "Âm đầu", "Âm m", "Từ nào bắt đầu bằng chữ M?", Picture::None, ["mẹ", "bố", "cá", "gà"], 0),
-    L!(60, Subject::TiengViet, "Vần", "Vần a", "Từ nào có vần a?", Picture::None, ["bé", "ba", "bố", "bì"], 1),
-    L!(61, Subject::TiengViet, "Vần", "Vần o", "Từ nào có vần o?", Picture::None, ["bò", "bé", "bì", "ba"], 0),
-    L!(62, Subject::TiengViet, "Vần", "Vần ơ", "Từ nào có vần ơ?", Picture::None, ["ba", "bé", "mơ", "bò"], 2),
-    L!(63, Subject::TiengViet, "Từ", "Con mèo", "Con vật kêu meo meo là gì?", Picture::None, ["chó", "gà", "heo", "mèo"], 3),
-    L!(64, Subject::TiengViet, "Từ", "Ngôi nhà", "Chỗ mình ở gọi là gì?", Picture::None, ["nhà", "cây", "sông", "núi"], 0),
-    L!(65, Subject::TiengViet, "Câu", "Câu đủ nghĩa", "Câu nào đủ nghĩa?", Picture::None, ["là", "cơm", "Bé ăn cơm.", "ăn"], 2),
-    L!(66, Subject::TiengViet, "Câu", "Câu hỏi", "Câu nào hỏi?", Picture::None, ["Bé ngủ.", "Ai đang ngủ?", "ngủ", "Bé."], 1),
-    // Tiếng Anh — starter (ids 67–78)
-    L!(67, Subject::TiengAnh, "Greetings", "Hello", "Khi gặp bạn, mình nói gì?", Picture::None, ["Bye", "Sorry", "Hello", "Stop"], 2),
-    L!(68, Subject::TiengAnh, "Greetings", "Goodbye", "Khi chia tay, mình nói gì?", Picture::None, ["Hello", "Goodbye", "Please", "Red"], 1),
-    L!(69, Subject::TiengAnh, "Alphabet", "Letter A", "Chữ cái đầu tiên trong bảng chữ cái tiếng Anh?", Picture::None, ["B", "C", "Z", "A"], 3),
-    L!(70, Subject::TiengAnh, "Alphabet", "Letter B", "Chữ nào đứng sau A?", Picture::None, ["B", "D", "Z", "C"], 0),
-    L!(71, Subject::TiengAnh, "Numbers", "One", "Số 1 tiếng Anh là gì?", Picture::Dots(1), ["two", "one", "ten", "zero"], 1),
-    L!(72, Subject::TiengAnh, "Numbers", "Two", "Số 2 tiếng Anh là gì?", Picture::Dots(2), ["one", "three", "two", "ten"], 2),
-    L!(73, Subject::TiengAnh, "Numbers", "Three", "Số 3 tiếng Anh là gì?", Picture::Stars(3), ["five", "tree", "free", "three"], 3),
-    L!(74, Subject::TiengAnh, "Colors", "Red", "Quả táo chín thường có màu…", Picture::Apples(1), ["blue", "red", "black", "green"], 1),
-    L!(75, Subject::TiengAnh, "Colors", "Yellow", "Mặt trời màu gì? (yellow)", Picture::Stars(1), ["yellow", "blue", "brown", "pink"], 0),
-    L!(76, Subject::TiengAnh, "Animals", "Cat", "Con mèo tiếng Anh là gì?", Picture::None, ["dog", "bird", "cat", "fish"], 2),
-    L!(77, Subject::TiengAnh, "Animals", "Dog", "Con chó tiếng Anh là gì?", Picture::None, ["dog", "cat", "pig", "cow"], 0),
-    L!(78, Subject::TiengAnh, "Family", "Mom", "“Mẹ” tiếng Anh thường nói là…", Picture::None, ["dad", "baby", "mom", "boy"], 2),
+    // Tiếng Việt KNTT tập 1 — chữ và vần (bỏ tiết kể chuyện)
+    L!(55, Subject::TiengViet, "Chữ cái", "Bài 1. A", "Đâu là chữ A?", Picture::None, ["O", "A", "U", "I"], 1),
+    L!(56, Subject::TiengViet, "Chữ cái", "Bài 2. B", "Từ nào có chữ b?", Picture::None, ["mẹ", "cá", "bò", "nhà"], 2),
+    L!(57, Subject::TiengViet, "Chữ cái", "Bài 3. C", "Đâu là chữ C?", Picture::None, ["O", "G", "C", "Q"], 2),
+    L!(58, Subject::TiengViet, "Chữ cái", "Bài 4. Ê", "Đâu là chữ Ê?", Picture::None, ["E", "Ê", "A", "Ô"], 1),
+    L!(59, Subject::TiengViet, "Chữ cái", "Bài 6. O", "Từ nào có chữ o?", Picture::None, ["bé", "bò", "mẹ", "bì"], 1),
+    L!(60, Subject::TiengViet, "Chữ cái", "Bài 7. Ô", "Đâu là chữ Ô?", Picture::None, ["O", "Ơ", "Ô", "U"], 2),
+    L!(61, Subject::TiengViet, "Chữ cái", "Bài 8. Đ", "Đâu là chữ Đ?", Picture::None, ["D", "Đ", "B", "P"], 1),
+    L!(62, Subject::TiengViet, "Chữ cái", "Bài 9. Ơ", "Từ nào có chữ ơ?", Picture::None, ["ba", "bò", "mơ", "bé"], 2),
+    L!(63, Subject::TiengViet, "Chữ cái", "Bài 11. I", "Đâu là chữ I?", Picture::None, ["L", "T", "I", "J"], 2),
+    L!(64, Subject::TiengViet, "Chữ cái", "Bài 12. L", "Từ nào bắt đầu bằng l?", Picture::None, ["lá", "cá", "bò", "mẹ"], 0),
+    L!(65, Subject::TiengViet, "Chữ cái", "Bài 13. Ư", "Đâu là chữ Ư?", Picture::None, ["U", "Ư", "I", "Ô"], 1),
+    L!(66, Subject::TiengViet, "Âm ghép", "Bài 14. Ch", "Từ nào có ch?", Picture::None, ["cá", "cha", "lá", "bò"], 1),
+    L!(67, Subject::TiengViet, "Chữ cái", "Bài 16. M", "Từ nào bắt đầu bằng m?", Picture::None, ["bố", "mẹ", "cá", "gà"], 1),
+    L!(68, Subject::TiengViet, "Chữ cái", "Bài 17. G", "Từ nào bắt đầu bằng g?", Picture::None, ["nhà", "gà", "mèo", "bố"], 1),
+    L!(69, Subject::TiengViet, "Âm ghép", "Bài 18. Nh", "Từ nào có nh?", Picture::None, ["cá", "bò", "nhà", "lá"], 2),
+    L!(70, Subject::TiengViet, "Âm ghép", "Bài 19. Ng", "Từ nào có ng?", Picture::None, ["ngựa", "cá", "mèo", "lá"], 0),
+    L!(71, Subject::TiengViet, "Chữ cái", "Bài 21. S", "Đâu là chữ S?", Picture::None, ["X", "Z", "S", "C"], 2),
+    L!(72, Subject::TiengViet, "Chữ cái", "Bài 22. T", "Từ nào bắt đầu bằng t?", Picture::None, ["mẹ", "tàu", "bò", "nhà"], 1),
+    L!(73, Subject::TiengViet, "Âm ghép", "Bài 23. Th", "Từ nào có th?", Picture::None, ["thỏ", "cá", "bò", "lá"], 0),
+    L!(74, Subject::TiengViet, "Vần", "Bài 24. ưa", "Từ nào có vần ưa?", Picture::None, ["ba", "lúa", "bò", "mẹ"], 1),
+    L!(75, Subject::TiengViet, "Âm ghép", "Bài 26. Qu", "Từ nào có qu?", Picture::None, ["cá", "lá", "quả", "bò"], 2),
+    L!(76, Subject::TiengViet, "Chữ cái", "Bài 27. V", "Từ nào bắt đầu bằng v?", Picture::None, ["voi", "mèo", "cá", "nhà"], 0),
+    L!(77, Subject::TiengViet, "Chữ cái", "Bài 28. Y", "Đâu là chữ Y?", Picture::None, ["V", "Y", "U", "I"], 1),
+    L!(78, Subject::TiengViet, "Vần", "Bài 31. an", "Từ nào có vần an?", Picture::None, ["bò", "bạn", "mơ", "lá"], 1),
+    L!(79, Subject::TiengViet, "Vần", "Bài 32. on", "Từ nào có vần on?", Picture::None, ["con", "cá", "mẹ", "lá"], 0),
+    L!(80, Subject::TiengViet, "Vần", "Bài 34. am", "Từ nào có vần am?", Picture::None, ["bò", "năm", "mơ", "cá"], 1),
+    L!(81, Subject::TiengViet, "Vần", "Bài 36. ơm", "Từ nào có vần ơm?", Picture::None, ["ba", "bò", "cơm", "lá"], 2),
+    L!(82, Subject::TiengViet, "Vần", "Bài 38. ai", "Từ nào có vần ai?", Picture::None, ["tai", "bò", "mẹ", "cơm"], 0),
+    L!(83, Subject::TiengViet, "Vần", "Bài 39. ơi", "Từ nào có vần ơi?", Picture::None, ["ba", "tôi", "cá", "lá"], 1),
+    L!(84, Subject::TiengViet, "Vần", "Bài 42. ao", "Từ nào có vần ao?", Picture::None, ["mẹ", "bò", "sao", "cơm"], 2),
+    L!(85, Subject::TiengViet, "Vần", "Bài 43. âu", "Từ nào có vần âu?", Picture::None, ["câu", "ba", "bò", "lá"], 0),
+    L!(86, Subject::TiengViet, "Ôn tập tập 1", "Chữ thường a", "Đâu là chữ a viết thường?", Picture::None, ["A", "a", "Ă", "Â"], 1),
+    // Tiếng Việt KNTT tập 2 — đọc hiểu ngắn (không chép truyện)
+    L!(87, Subject::TiengViet, "Tôi và các bạn", "Tôi là học sinh lớp 1", "Bé học lớp mấy?", Picture::None, ["lớp 5", "lớp 1", "lớp 9", "mẫu giáo"], 1),
+    L!(88, Subject::TiengViet, "Điều em cần biết", "Lời chào", "Khi gặp thầy cô, bé nói gì?", Picture::None, ["im lặng", "chạy đi", "chào ạ", "quay lưng"], 2),
+    L!(89, Subject::TiengViet, "Điều em cần biết", "Rửa tay", "Rửa tay khi nào?", Picture::None, ["sau khi ăn no", "trước khi ăn", "khi ngủ", "khi xem TV"], 1),
+    L!(90, Subject::TiengViet, "Điều em cần biết", "Đèn giao thông", "Đèn đỏ nghĩa là gì?", Picture::None, ["đi", "dừng lại", "chạy nhanh", "bật nhạc"], 1),
+    L!(91, Subject::TiengViet, "Mái ấm gia đình", "Ngôi nhà", "Chỗ mình ở gọi là gì?", Picture::None, ["nhà", "sông", "núi", "chợ"], 0),
+    L!(92, Subject::TiengViet, "Mái trường mến yêu", "Giờ ra chơi", "Giờ ra chơi thường làm gì?", Picture::None, ["ngủ ở nhà", "vui với bạn", "đi chợ", "lái xe"], 1),
+    L!(93, Subject::TiengViet, "Tôi và các bạn", "Tình bạn", "Bạn tốt thì nên thế nào?", Picture::None, ["cãi nhau", "giúp đỡ nhau", "giấu đồ", "im mãi"], 1),
+    L!(94, Subject::TiengViet, "Câu", "Câu đủ nghĩa", "Câu nào đủ nghĩa?", Picture::None, ["là", "cơm", "Bé ăn cơm.", "ăn"], 2),
+    // Tiếng Anh 1 Global Success — 16 unit
+    L!(95, Subject::TiengAnh, "Unit 1 Playground", "Phonics Bb", "Chữ nào có trong ball?", Picture::None, ["C", "B", "D", "S"], 1),
+    L!(96, Subject::TiengAnh, "Unit 1 Playground", "ball", "Quả bóng tiếng Anh là gì?", Picture::None, ["book", "bike", "ball", "bell"], 2),
+    L!(97, Subject::TiengAnh, "Unit 1 Playground", "Hi", "Khi gặp bạn Bill, mình nói gì?", Picture::None, ["Bye", "Stop", "Hi", "Sit"], 2),
+    L!(98, Subject::TiengAnh, "Unit 2 Dining room", "cat", "Con mèo tiếng Anh là gì?", Picture::None, ["car", "cup", "cat", "cake"], 2),
+    L!(99, Subject::TiengAnh, "Unit 2 Dining room", "I have a car", "“I have a car” nghĩa gần nhất?", Picture::None, ["Tôi có ô tô", "Tôi ăn bánh", "Tôi ngủ", "Tôi chạy"], 0),
+    L!(100, Subject::TiengAnh, "Unit 3 Market", "apple", "Quả táo tiếng Anh là gì?", Picture::Apples(1), ["hat", "bag", "can", "apple"], 3),
+    L!(101, Subject::TiengAnh, "Unit 3 Market", "bag", "Cái túi tiếng Anh là gì?", Picture::None, ["bag", "ball", "bus", "bed"], 0),
+    L!(102, Subject::TiengAnh, "Unit 4 Bedroom", "dog", "Con chó tiếng Anh là gì?", Picture::None, ["duck", "desk", "door", "dog"], 3),
+    L!(103, Subject::TiengAnh, "Unit 4 Bedroom", "door", "Cửa ra vào tiếng Anh là gì?", Picture::None, ["desk", "door", "dog", "duck"], 1),
+    L!(104, Subject::TiengAnh, "Unit 5 Fish and chips", "milk", "Sữa tiếng Anh là gì?", Picture::None, ["fish", "chips", "milk", "chicken"], 2),
+    L!(105, Subject::TiengAnh, "Unit 5 Fish and chips", "I like milk", "“I like milk” nghĩa gần nhất?", Picture::None, ["Tôi thích sữa", "Tôi có ô tô", "Tôi chào", "Tôi ngủ"], 0),
+    L!(106, Subject::TiengAnh, "Unit 6 Classroom", "red", "Màu đỏ tiếng Anh là gì?", Picture::None, ["pen", "bell", "red", "desk"], 2),
+    L!(107, Subject::TiengAnh, "Unit 6 Classroom", "pen", "Cái bút tiếng Anh là gì?", Picture::None, ["pencil", "pen", "bell", "book"], 1),
+    L!(108, Subject::TiengAnh, "Unit 7 Garden", "garden", "Khu vườn tiếng Anh là gì?", Picture::None, ["gate", "goat", "girl", "garden"], 3),
+    L!(109, Subject::TiengAnh, "Unit 7 Garden", "goat", "Con dê tiếng Anh là gì?", Picture::None, ["girl", "goat", "gate", "garden"], 1),
+    L!(110, Subject::TiengAnh, "Unit 8 Park", "hand", "Bàn tay tiếng Anh là gì?", Picture::None, ["head", "hair", "hand", "horse"], 2),
+    L!(111, Subject::TiengAnh, "Unit 8 Park", "head", "Cái đầu tiếng Anh là gì?", Picture::None, ["hand", "hat", "head", "horse"], 2),
+    L!(112, Subject::TiengAnh, "Unit 9 Shop", "clock", "Đồng hồ tiếng Anh là gì?", Picture::None, ["lock", "clock", "cup", "car"], 1),
+    L!(113, Subject::TiengAnh, "Unit 9 Shop", "five", "Số 5 tiếng Anh là gì?", Picture::None, ["four", "five", "nine", "two"], 1),
+    L!(114, Subject::TiengAnh, "Unit 10 Zoo", "monkey", "Con khỉ tiếng Anh là gì?", Picture::None, ["mouse", "mango", "monkey", "mother"], 2),
+    L!(115, Subject::TiengAnh, "Unit 10 Zoo", "At the zoo", "Ở sở thú mình gặp con gì?", Picture::None, ["desk", "pen", "monkey", "clock"], 2),
+    L!(116, Subject::TiengAnh, "Unit 11 Bus stop", "bus", "Xe buýt tiếng Anh là gì?", Picture::None, ["bike", "bus", "ball", "bag"], 1),
+    L!(117, Subject::TiengAnh, "Unit 12 Lake", "lake", "Hồ nước tiếng Anh là gì?", Picture::None, ["leaf", "lemon", "lake", "lock"], 2),
+    L!(118, Subject::TiengAnh, "Unit 13 Canteen", "banana", "Quả chuối tiếng Anh là gì?", Picture::None, ["apple", "nut", "banana", "milk"], 2),
+    L!(119, Subject::TiengAnh, "Unit 14 Toy shop", "tiger", "Con hổ tiếng Anh là gì?", Picture::None, ["turtle", "teddy", "top", "tiger"], 3),
+    L!(120, Subject::TiengAnh, "Unit 15 Football", "father", "Bố tiếng Anh là gì?", Picture::None, ["face", "foot", "father", "five"], 2),
+    L!(121, Subject::TiengAnh, "Unit 16 At home", "water", "Nước tiếng Anh là gì?", Picture::None, ["window", "wash", "water", "Wendy"], 2),
+    L!(122, Subject::TiengAnh, "Unit 16 At home", "window", "Cửa sổ tiếng Anh là gì?", Picture::None, ["door", "window", "wall", "water"], 1),
+    L!(123, Subject::TiengAnh, "Unit 1 Playground", "book", "Quyển sách tiếng Anh là gì?", Picture::None, ["ball", "bike", "book", "bag"], 2),
+    L!(124, Subject::TiengAnh, "Unit 1 Playground", "bike", "Xe đạp tiếng Anh là gì?", Picture::None, ["bus", "bike", "ball", "bag"], 1),
+    L!(125, Subject::TiengAnh, "Unit 3 Market", "This is my bag", "“This is my bag” nghĩa gần nhất?", Picture::None, ["Đây là túi của tôi", "Tôi thích sữa", "Xin chào", "Tạm biệt"], 0),
+    L!(126, Subject::TiengAnh, "Unit 1 Playground", "Bye", "Khi chia tay, mình nói gì?", Picture::None, ["Hi", "Bye", "Sit", "Red"], 1),
 ];
 
 #[cfg(test)]
@@ -211,8 +260,8 @@ mod tests {
     #[test]
     fn math_follows_sgk_length() {
         assert_eq!(for_subject(Subject::Toan).len(), 54);
-        assert_eq!(for_subject(Subject::TiengViet).len(), 12);
-        assert_eq!(for_subject(Subject::TiengAnh).len(), 12);
+        assert_eq!(for_subject(Subject::TiengViet).len(), 40);
+        assert_eq!(for_subject(Subject::TiengAnh).len(), 32);
     }
 
     #[test]
@@ -267,5 +316,21 @@ mod tests {
         assert!(units.contains(&"Cộng trừ trong phạm vi 10"));
         assert!(units.contains(&"Các số đến 100"));
         assert!(units.contains(&"Giờ và lịch"));
+    }
+
+    #[test]
+    fn viet_and_english_follow_books() {
+        let viet: Vec<_> = for_subject(Subject::TiengViet)
+            .into_iter()
+            .map(|lesson| lesson.title)
+            .collect();
+        assert!(viet.iter().any(|t| t.contains("Bài 1. A")));
+        assert!(viet.iter().any(|t| t.contains("Đèn giao thông")));
+        let anh: Vec<_> = for_subject(Subject::TiengAnh)
+            .into_iter()
+            .map(|lesson| lesson.unit)
+            .collect();
+        assert!(anh.iter().any(|u| u.contains("Unit 1")));
+        assert!(anh.iter().any(|u| u.contains("Unit 16")));
     }
 }
