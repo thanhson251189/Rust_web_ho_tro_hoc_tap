@@ -9,13 +9,14 @@ use axum::{
 };
 use rusqlite::Connection;
 use serde::Deserialize;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 const LOCAL_PARENT_SUB: &str = "local-dev";
 const AVATARS: &[&str] = &["robot", "cat", "bear", "fox"];
 
+#[derive(Clone)]
 pub struct AppState {
-    db: Mutex<Connection>,
+    db: Arc<Mutex<Connection>>,
     user_id: i64,
 }
 
@@ -25,7 +26,7 @@ impl AppState {
         let user = upsert_user(&conn, LOCAL_PARENT_SUB, "local@family")?;
         Ok(Self {
             user_id: user.id,
-            db: Mutex::new(conn),
+            db: Arc::new(Mutex::new(conn)),
         })
     }
 }
@@ -65,25 +66,18 @@ async fn create_profile(
         "robot".to_string()
     };
 
-    let mut error = None;
-    {
-        let db = state.db.lock().expect("db lock");
-        if name.is_empty() {
-            error = Some("Nhập tên hồ sơ.".to_string());
-        } else {
-            match add_profile(&db, state.user_id, &name, &avatar_key) {
-                Ok(_) => {}
-                Err(StoreError::ProfileLimit) => {
-                    error = Some("Tối đa 2 hồ sơ.".to_string());
-                }
-                Err(err) => {
-                    error = Some(format!("Không lưu được hồ sơ: {err:?}"));
-                }
-            }
+    let db = state.db.lock().expect("db lock");
+    let error = if name.is_empty() {
+        Some("Nhập tên hồ sơ.".to_string())
+    } else {
+        match add_profile(&db, state.user_id, &name, &avatar_key) {
+            Ok(_) => None,
+            Err(StoreError::ProfileLimit) => Some("Tối đa 2 hồ sơ.".to_string()),
+            Err(err) => Some(format!("Không lưu được hồ sơ: {err:?}")),
         }
-        let profiles = list_profiles(&db, state.user_id).expect("list profiles");
-        return Html(render_picker(&profiles, error.as_deref()));
-    }
+    };
+    let profiles = list_profiles(&db, state.user_id).expect("list profiles");
+    Html(render_picker(&profiles, error.as_deref()))
 }
 
 async fn open_profile(State(state): State<AppState>, Path(id): Path<i64>) -> Html<String> {
@@ -138,7 +132,10 @@ fn escape(input: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{app, AppState};
-    use axum::{body::{to_bytes, Body}, http::{Request, StatusCode}};
+    use axum::{
+        body::{to_bytes, Body},
+        http::{Request, StatusCode},
+    };
     use tower::ServiceExt;
 
     fn test_app() -> axum::Router {
