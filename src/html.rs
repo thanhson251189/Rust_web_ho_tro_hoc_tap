@@ -101,18 +101,29 @@ a.face:hover .bubble { transform: translateY(-4px); }
 }
 .worlds { display: flex; flex-direction: column; gap: 1rem; }
 a.world {
-  display: grid; grid-template-columns: 7.5rem 1fr auto; gap: 1rem; align-items: center;
+  display: grid; grid-template-columns: minmax(4.5rem, 7.5rem) minmax(0, 1fr) auto; gap: 1rem; align-items: center;
   text-decoration: none; color: inherit; background: var(--sheet);
   border-radius: 1.75rem; padding: 1rem 1.2rem; min-height: 7.25rem;
   box-shadow: 0 12px 0 rgba(58,36,24,.07);
+  overflow: hidden;
 }
 a.world:hover { transform: translateY(-2px); }
-.world .art { width: 7.5rem; height: 5.5rem; border-radius: 1.25rem; position: relative; overflow: hidden; }
+.world .art {
+  width: 100%; max-width: 100%; height: 5.5rem; border-radius: 1.25rem;
+  position: relative; overflow: hidden; justify-self: stretch;
+}
+.world .copy { min-width: 0; overflow: hidden; }
 .world-toan .art { background: #ffd3b8; }
 .world-viet .art { background: #c8f3d8; }
 .world-anh .art { background: #cfe0ff; }
-.world h2 { font-size: 1.85rem; }
-.world .hint { color: var(--muted); font-weight: 600; margin: .15rem 0 0; }
+.world h2 {
+  font-size: clamp(1.35rem, 5vw, 1.85rem);
+  overflow-wrap: anywhere; word-break: break-word;
+}
+.world .hint {
+  color: var(--muted); font-weight: 600; margin: .15rem 0 0;
+  overflow-wrap: anywhere;
+}
 .go {
   font-family: Fredoka, sans-serif; font-weight: 700; background: #fff4b8;
   padding: .55rem .9rem; border-radius: 999px; white-space: nowrap;
@@ -205,8 +216,9 @@ a.world:focus-visible, a.face:focus-visible, button:focus-visible, .btn:focus-vi
 }
 @media (max-width: 640px) {
   .choices { grid-template-columns: 1fr; }
-  a.world { grid-template-columns: 4.8rem 1fr; }
+  a.world { grid-template-columns: minmax(3.6rem, 4.8rem) minmax(0, 1fr); gap: .75rem; padding: .9rem 1rem; }
   a.world .go { display: none; }
+  .world .art { height: 4.2rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; }
@@ -277,7 +289,7 @@ pub fn home(profile: &Profile) -> String {
         worlds.push_str(&format!(
             "<a class='world {class}' href=/profiles/{id}/mon/{slug}>\
 <span class=art><span class=blob></span><span class='blob b'></span></span>\
-<span><h2>{title}</h2><p class=hint>{n} bài · {hint}</p></span>\
+<span class=copy><h2>{title}</h2><p class=hint>{n} bài · {hint}</p></span>\
 <span class=go>Vào học</span></a>",
             id = profile.id,
             slug = subject.slug(),
