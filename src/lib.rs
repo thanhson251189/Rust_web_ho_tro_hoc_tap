@@ -9,7 +9,6 @@ use axum::{
 };
 use rusqlite::Connection;
 use serde::Deserialize;
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 pub const DEFAULT_DB_PATH: &str = "data/app.sqlite";
@@ -27,7 +26,7 @@ impl AppState {
         Self::from_conn(store::open_memory()?)
     }
 
-    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, StoreError> {
+    pub fn from_file(path: impl AsRef<std::path::Path>) -> Result<Self, StoreError> {
         Self::from_conn(store::open_file(path)?)
     }
 
