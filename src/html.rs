@@ -263,6 +263,20 @@ pub fn missing() -> String {
     )
 }
 
+pub fn missing_profile() -> String {
+    page(
+        "Không có hồ sơ",
+        "<h1>Không có hồ sơ này.</h1><p class=sub><a href=/profiles>Quay lại chọn hồ sơ</a></p>",
+    )
+}
+
+pub fn missing_subject() -> String {
+    page(
+        "Không có môn",
+        "<h1>Không có môn này.</h1><p class=sub><a href=/profiles>Về chọn hồ sơ</a></p>",
+    )
+}
+
 pub fn lesson_page(
     profile: &Profile,
     lesson: &Lesson,

@@ -89,48 +89,48 @@ const LESSONS: [Lesson; 15] = [
         subject: Subject::Toan,
         title: "Đếm đến 5",
         prompt: "Có bao nhiêu ngôi sao? ★ ★ ★",
-        choices: ["2", "3", "4", "5"],
-        correct: 1,
+        choices: ["3", "2", "4", "5"],
+        correct: 0,
     },
     Lesson {
         id: 2,
         subject: Subject::Toan,
         title: "Số còn thiếu",
         prompt: "1, 2, 3, __, 5. Số nào điền vào chỗ trống?",
-        choices: ["2", "4", "6", "0"],
-        correct: 1,
+        choices: ["2", "6", "4", "0"],
+        correct: 2,
     },
     Lesson {
         id: 3,
         subject: Subject::Toan,
         title: "Cộng trong phạm vi 10",
         prompt: "3 + 2 = ?",
-        choices: ["4", "5", "6", "32"],
-        correct: 1,
+        choices: ["4", "6", "32", "5"],
+        correct: 3,
     },
     Lesson {
         id: 4,
         subject: Subject::Toan,
         title: "Trừ trong phạm vi 10",
         prompt: "7 − 1 = ?",
-        choices: ["5", "6", "8", "71"],
-        correct: 1,
+        choices: ["6", "5", "8", "71"],
+        correct: 0,
     },
     Lesson {
         id: 5,
         subject: Subject::Toan,
         title: "So sánh số",
         prompt: "Số nào lớn hơn?",
-        choices: ["4", "9", "2", "1"],
-        correct: 1,
+        choices: ["4", "2", "9", "1"],
+        correct: 2,
     },
     Lesson {
         id: 6,
         subject: Subject::TiengViet,
         title: "Chữ cái A",
         prompt: "Đâu là chữ A?",
-        choices: ["O", "A", "U", "I"],
-        correct: 1,
+        choices: ["A", "O", "U", "I"],
+        correct: 0,
     },
     Lesson {
         id: 7,
@@ -145,64 +145,64 @@ const LESSONS: [Lesson; 15] = [
         subject: Subject::TiengViet,
         title: "Vần a",
         prompt: "Từ nào có vần a?",
-        choices: ["bé", "ba", "bố", "bì"],
-        correct: 1,
+        choices: ["bé", "bố", "bì", "ba"],
+        correct: 3,
     },
     Lesson {
         id: 9,
         subject: Subject::TiengViet,
         title: "Đọc từ",
         prompt: "Con vật kêu meo meo là gì?",
-        choices: ["chó", "gà", "mèo", "heo"],
-        correct: 2,
+        choices: ["chó", "mèo", "gà", "heo"],
+        correct: 1,
     },
     Lesson {
         id: 10,
         subject: Subject::TiengViet,
         title: "Câu ngắn",
         prompt: "Câu nào đủ nghĩa?",
-        choices: ["là", "Bé ăn cơm.", "cơm", "ăn"],
-        correct: 1,
+        choices: ["là", "cơm", "ăn", "Bé ăn cơm."],
+        correct: 3,
     },
     Lesson {
         id: 11,
         subject: Subject::TiengAnh,
         title: "Hello",
         prompt: "Khi gặp bạn, mình nói gì?",
-        choices: ["Bye", "Hello", "Sorry", "Stop"],
-        correct: 1,
+        choices: ["Bye", "Sorry", "Stop", "Hello"],
+        correct: 3,
     },
     Lesson {
         id: 12,
         subject: Subject::TiengAnh,
         title: "Colors",
         prompt: "Apple is… (quả táo màu gì?)",
-        choices: ["blue", "red", "black", "purple"],
-        correct: 1,
+        choices: ["blue", "black", "red", "purple"],
+        correct: 2,
     },
     Lesson {
         id: 13,
         subject: Subject::TiengAnh,
         title: "Animals",
         prompt: "Con mèo tiếng Anh là gì?",
-        choices: ["dog", "bird", "cat", "fish"],
-        correct: 2,
+        choices: ["cat", "dog", "bird", "fish"],
+        correct: 0,
     },
     Lesson {
         id: 14,
         subject: Subject::TiengAnh,
         title: "Numbers",
         prompt: "Số 2 tiếng Anh là gì?",
-        choices: ["one", "two", "three", "ten"],
-        correct: 1,
+        choices: ["one", "three", "ten", "two"],
+        correct: 3,
     },
     Lesson {
         id: 15,
         subject: Subject::TiengAnh,
         title: "Alphabet",
         prompt: "Chữ cái đầu tiên trong bảng chữ cái tiếng Anh?",
-        choices: ["B", "C", "Z", "A"],
-        correct: 3,
+        choices: ["B", "A", "C", "Z"],
+        correct: 1,
     },
 ];
 
@@ -222,6 +222,32 @@ mod tests {
         for lesson in all_lessons() {
             assert!(lesson.correct < lesson.choices.len());
         }
+    }
+
+    #[test]
+    fn correct_answers_are_not_stuck_on_one_button() {
+        // Kids must not learn "always tap choice index 1".
+        for subject in Subject::all() {
+            let mut seen = [false; 4];
+            for lesson in for_subject(subject) {
+                seen[lesson.correct] = true;
+            }
+            let distinct = seen.iter().filter(|&&hit| hit).count();
+            assert!(
+                distinct >= 3,
+                "{:?} only uses {} distinct correct slots",
+                subject,
+                distinct
+            );
+        }
+        let ones = all_lessons()
+            .iter()
+            .filter(|lesson| lesson.correct == 1)
+            .count();
+        assert!(
+            ones <= 5,
+            "too many lessons still use correct index 1 ({ones}/15)"
+        );
     }
 
     #[test]

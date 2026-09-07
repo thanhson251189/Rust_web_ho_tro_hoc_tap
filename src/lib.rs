@@ -119,7 +119,7 @@ async fn create_profile(
 async fn open_profile(State(state): State<AppState>, Path(id): Path<i64>) -> Html<String> {
     match state.profile(id) {
         Some(profile) => Html(html::home(&profile)),
-        None => Html(html::missing()),
+        None => Html(html::missing_profile()),
     }
 }
 
@@ -128,10 +128,10 @@ async fn subject_page(
     Path((id, slug)): Path<(i64, String)>,
 ) -> Html<String> {
     let Some(profile) = state.profile(id) else {
-        return Html(html::missing());
+        return Html(html::missing_profile());
     };
     let Some(subject) = Subject::parse(&slug) else {
-        return Html(html::missing());
+        return Html(html::missing_subject());
     };
     Html(html::subject_page(&profile, subject, &for_subject(subject)))
 }
@@ -173,7 +173,7 @@ fn render_lesson(
     flash: Option<Flash>,
 ) -> Html<String> {
     let Some(profile) = state.profile(profile_id) else {
-        return Html(html::missing());
+        return Html(html::missing_profile());
     };
     let Some(lesson) = by_id(lesson_id) else {
         return Html(html::missing());
@@ -329,8 +329,67 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn unknown_profile_keeps_profile_copy() {
+        let response = test_app()
+            .oneshot(
+                Request::builder()
+                    .uri("/profiles/999")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let html = body_of(response).await;
+        assert!(html.contains("Không có hồ sơ này"));
+        assert!(!html.contains("Không có trang này"));
+    }
+
+    #[tokio::test]
+    async fn unknown_subject_slug_is_not_a_subject() {
+        let app = add_an(test_app()).await;
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/profiles/1/mon/nope")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let html = body_of(response).await;
+        assert!(html.contains("Không có môn này"));
+        assert!(!html.contains("Bắt đầu bài 1"));
+    }
+
+    #[tokio::test]
+    async fn math_subject_lists_five_lessons_and_start_cta() {
+        let app = add_an(test_app()).await;
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/profiles/1/mon/toan")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let html = body_of(response).await;
+        assert!(html.contains("Bắt đầu bài 1"));
+        assert!(html.contains("Đếm đến 5"));
+        assert!(html.contains("Số còn thiếu"));
+        assert!(html.contains("Cộng trong phạm vi 10"));
+        assert!(html.contains("Trừ trong phạm vi 10"));
+        assert!(html.contains("So sánh số"));
+        assert!(html.contains("/profiles/1/bai/1"));
+    }
+
+    #[tokio::test]
     async fn math_lesson_accepts_correct_answer() {
         let app = add_an(test_app()).await;
+        // Lesson 1 correct is index 0 ("3"); index 1 is a distractor.
         let wrong = app
             .clone()
             .oneshot(
@@ -338,7 +397,7 @@ mod tests {
                     .method("POST")
                     .uri("/profiles/1/bai/1")
                     .header("content-type", form_type())
-                    .body(Body::from("choice=0"))
+                    .body(Body::from("choice=1"))
                     .unwrap(),
             )
             .await
@@ -352,7 +411,7 @@ mod tests {
                     .method("POST")
                     .uri("/profiles/1/bai/1")
                     .header("content-type", form_type())
-                    .body(Body::from("choice=1"))
+                    .body(Body::from("choice=0"))
                     .unwrap(),
             )
             .await
