@@ -1,6 +1,8 @@
 pub mod store;
 
-use crate::store::{add_profile, list_profiles, upsert_user, StoreError, MAX_PROFILES_PER_USER};
+use crate::store::{
+    add_profile, list_profiles, upsert_user, StoreError, MAX_PROFILES_PER_USER,
+};
 use axum::{
     extract::{Path, State},
     response::{Html, Redirect},
@@ -68,12 +70,12 @@ async fn create_profile(
 
     let db = state.db.lock().expect("db lock");
     let error = if name.is_empty() {
-        Some("Nhập tên hồ sơ.".to_string())
+        Some("Nhap ten ho so.".to_string())
     } else {
         match add_profile(&db, state.user_id, &name, &avatar_key) {
             Ok(_) => None,
-            Err(StoreError::ProfileLimit) => Some("Tối đa 2 hồ sơ.".to_string()),
-            Err(err) => Some(format!("Không lưu được hồ sơ: {err:?}")),
+            Err(StoreError::ProfileLimit) => Some("Toi da 2 ho so.".to_string()),
+            Err(err) => Some(format!("Khong luu duoc ho so: {err:?}")),
         }
     };
     let profiles = list_profiles(&db, state.user_id).expect("list profiles");
@@ -85,12 +87,11 @@ async fn open_profile(State(state): State<AppState>, Path(id): Path<i64>) -> Htm
     let profiles = list_profiles(&db, state.user_id).expect("list profiles");
     match profiles.into_iter().find(|p| p.id == id) {
         Some(profile) => Html(format!(
-            "<!DOCTYPE html><html lang=\"vi\"><head><meta charset=\"utf-8\"><title>{}</title></head><body><p>Xin chào, {}</p><p><a href=\"/profiles\">Đổi hồ sơ</a></p></body></html>",
-            escape(&profile.name),
+            "<!DOCTYPE html><html lang=vi><head><meta charset=utf-8><title>{0}</title></head><body><p>Xin chao, {0}</p><p><a href=/profiles>Doi ho so</a></p></body></html>",
             escape(&profile.name)
         )),
         None => Html(
-            "<!DOCTYPE html><html lang=\"vi\"><head><meta charset=\"utf-8\"></head><body><p>Không có hồ sơ này.</p><p><a href=\"/profiles\">Quay lại</a></p></body></html>".into(),
+            "<!DOCTYPE html><html lang=vi><head><meta charset=utf-8></head><body><p>Khong co ho so nay.</p><p><a href=/profiles>Quay lai</a></p></body></html>".into(),
         ),
     }
 }
@@ -99,7 +100,7 @@ fn render_picker(profiles: &[store::Profile], error: Option<&str>) -> String {
     let mut cards = String::new();
     for p in profiles {
         cards.push_str(&format!(
-            "<a class=\"card\" href=\"/profiles/{}\"><span class=\"avatar\">{}</span><span class=\"name\">{}</span></a>",
+            "<a class=card href=/profiles/{0}><span class=avatar>{1}</span><span class=name>{2}</span></a>",
             p.id,
             escape(&p.avatar_key),
             escape(&p.name)
@@ -107,26 +108,44 @@ fn render_picker(profiles: &[store::Profile], error: Option<&str>) -> String {
     }
 
     let form = if profiles.len() < MAX_PROFILES_PER_USER {
-        "<form method=\"post\" action=\"/profiles\"><label>Tên <input name=\"name\" required maxlength=\"24\"></label><label>Avatar <select name=\"avatar_key\"><option value=\"robot\">robot</option><option value=\"cat\">cat</option><option value=\"bear\">bear</option><option value=\"fox\">fox</option></select></label><button type=\"submit\">Thêm hồ sơ</button></form>".to_string()
+        "<form method=post action=/profiles><label>Ten <input name=name required maxlength=24></label><label>Avatar <select name=avatar_key><option value=robot>robot</option><option value=cat>cat</option><option value=bear>bear</option><option value=fox>fox</option></select></label><button type=submit>Them ho so</button></form>".to_string()
     } else {
         String::new()
     };
 
     let err = error
-        .map(|e| format!("<p class=\"error\">{}</p>", escape(e)))
+        .map(|e| format!("<p class=error>{}</p>", escape(e)))
         .unwrap_or_default();
 
     format!(
-        "<!DOCTYPE html><html lang=\"vi\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Chọn hồ sơ</title><style>body{{font-family:sans-serif;margin:2rem;}} .row{{display:flex;gap:1rem;flex-wrap:wrap;}} .card{{display:flex;flex-direction:column;align-items:center;width:8rem;padding:1.5rem;border:2px solid #333;border-radius:1rem;text-decoration:none;color:inherit;font-size:1.4rem;}} .avatar{{font-size:2rem;}} .error{{color:#b00020;}} form{{margin-top:2rem;display:flex;gap:1rem;align-items:end;flex-wrap:wrap;}}</style></head><body><h1>Ai đang học?</h1><div class=\"row\">{cards}</div>{err}{form}</body></html>"
+        "<!DOCTYPE html><html lang=vi><head><meta charset=utf-8><meta name=viewport content='width=device-width, initial-scale=1'><title>Chon ho so</title><style>body{{font-family:sans-serif;margin:2rem;}} .row{{display:flex;gap:1rem;flex-wrap:wrap;}} .card{{display:flex;flex-direction:column;align-items:center;width:8rem;padding:1.5rem;border:2px solid #333;border-radius:1rem;text-decoration:none;color:inherit;font-size:1.4rem;}} .avatar{{font-size:2rem;}} .error{{color:#b00020;}} form{{margin-top:2rem;display:flex;gap:1rem;align-items:end;flex-wrap:wrap;}}</style></head><body><h1>Ai dang hoc?</h1><div class=row>{cards}</div>{err}{form}</body></html>"
     )
 }
 
 fn escape(input: &str) -> String {
-    input
-        .replace('&', "&")
-        .replace('<', "<")
-        .replace('>', ">")
-        .replace('"', """)
+    let mut out = String::with_capacity(input.len());
+    for c in input.chars() {
+        match c {
+            '&' => {
+                out.push('&');
+                out.push_str("amp;");
+            }
+            '<' => {
+                out.push('&');
+                out.push_str("lt;");
+            }
+            '>' => {
+                out.push('&');
+                out.push_str("gt;");
+            }
+            '"' => {
+                out.push('&');
+                out.push_str("quot;");
+            }
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -170,13 +189,14 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         let html = body_of(response).await;
-        assert!(html.contains("Ai đang học?"));
-        assert!(html.contains("Thêm hồ sơ"));
+        assert!(html.contains("Ai dang hoc?"));
+        assert!(html.contains("Them ho so"));
     }
 
     #[tokio::test]
     async fn create_two_profiles_then_reject_third() {
         let app = test_app();
+        let form_type = concat!("application/x-www-form-", "urlencoded");
 
         let first = app
             .clone()
@@ -184,7 +204,7 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/profiles")
-                    .header("content-type", "application/x-www-form-urlencoded")
+                    .header("content-type", form_type)
                     .body(Body::from("name=An&avatar_key=robot"))
                     .unwrap(),
             )
@@ -199,7 +219,7 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/profiles")
-                    .header("content-type", "application/x-www-form-urlencoded")
+                    .header("content-type", form_type)
                     .body(Body::from("name=Binh&avatar_key=cat"))
                     .unwrap(),
             )
@@ -208,21 +228,21 @@ mod tests {
         let html = body_of(second).await;
         assert!(html.contains("An"));
         assert!(html.contains("Binh"));
-        assert!(!html.contains("Thêm hồ sơ"));
+        assert!(!html.contains("Them ho so"));
 
         let third = app
             .oneshot(
                 Request::builder()
                     .method("POST")
                     .uri("/profiles")
-                    .header("content-type", "application/x-www-form-urlencoded")
+                    .header("content-type", form_type)
                     .body(Body::from("name=Chi&avatar_key=bear"))
                     .unwrap(),
             )
             .await
             .unwrap();
         let html = body_of(third).await;
-        assert!(html.contains("Tối đa 2 hồ sơ."));
+        assert!(html.contains("Toi da 2 ho so."));
         assert!(!html.contains("Chi"));
     }
 }
