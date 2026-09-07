@@ -4,7 +4,7 @@ use crate::store::{add_profile, list_profiles, upsert_user, StoreError, MAX_PROF
 use axum::{
     extract::{Path, State},
     response::{Html, Redirect},
-    routing::{get, post},
+    routing::get,
     Form, Router,
 };
 use rusqlite::Connection;
@@ -123,10 +123,10 @@ fn render_picker(profiles: &[store::Profile], error: Option<&str>) -> String {
 
 fn escape(input: &str) -> String {
     input
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
+        .replace('&', "&")
+        .replace('<', "<")
+        .replace('>', ">")
+        .replace('"', """)
 }
 
 #[cfg(test)]
