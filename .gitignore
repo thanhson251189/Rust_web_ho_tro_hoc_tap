@@ -10,5 +10,8 @@ data/*.sqlite-*
 
 .DS_Store
 Thumbs.db
+
+# Playwright MCP drops page snapshots in the working directory
+.playwright-mcp/
 .idea/
 .vscode/
