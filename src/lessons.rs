@@ -248,16 +248,16 @@ const LESSONS: [Lesson; 201] = [
     L!(71, Subject::TiengViet, "Chữ cái", "Bài 21. S", "Đâu là chữ S?", Picture::LetterCard("S", "s"), ["S", "X", "Z", "C"], 0),
     L!(72, Subject::TiengViet, "Chữ cái", "Bài 22. T", "Từ nào bắt đầu bằng t?", Picture::RhymeCard("t", "tàu"), ["mẹ", "tàu", "bò", "nhà"], 1),
     L!(73, Subject::TiengViet, "Âm ghép", "Bài 23. Th", "Từ nào có th?", Picture::RhymeCard("th", "thỏ"), ["cá", "bò", "thỏ", "lá"], 2),
-    L!(74, Subject::TiengViet, "Vần", "Bài 24. ưa", "Từ nào có vần ưa?", Picture::RhymeCard("ưa", "lúa"), ["lúa", "ba", "bò", "mẹ"], 0),
+    L!(74, Subject::TiengViet, "Vần", "Bài 24. ưa", "Từ nào có vần ưa?", Picture::RhymeCard("ưa", "mưa"), ["mưa", "ba", "bò", "mẹ"], 0),
     L!(75, Subject::TiengViet, "Âm ghép", "Bài 26. Qu", "Từ nào có qu?", Picture::RhymeCard("qu", "quả"), ["cá", "lá", "bò", "quả"], 3),
     L!(76, Subject::TiengViet, "Chữ cái", "Bài 27. V", "Từ nào bắt đầu bằng v?", Picture::RhymeCard("v", "voi"), ["mèo", "voi", "cá", "nhà"], 1),
     L!(77, Subject::TiengViet, "Chữ cái", "Bài 28. Y", "Đâu là chữ Y?", Picture::LetterCard("Y", "y"), ["V", "U", "Y", "I"], 2),
     L!(78, Subject::TiengViet, "Vần", "Bài 31. an", "Từ nào có vần an?", Picture::RhymeCard("an", "bạn"), ["bò", "mơ", "lá", "bạn"], 3),
     L!(79, Subject::TiengViet, "Vần", "Bài 32. on", "Từ nào có vần on?", Picture::RhymeCard("on", "con"), ["cá", "con", "mẹ", "lá"], 1),
-    L!(80, Subject::TiengViet, "Vần", "Bài 34. am", "Từ nào có vần am?", Picture::RhymeCard("am", "năm"), ["năm", "bò", "mơ", "cá"], 0),
+    L!(80, Subject::TiengViet, "Vần", "Bài 34. am", "Từ nào có vần am?", Picture::RhymeCard("am", "cam"), ["cam", "bò", "mơ", "cá"], 0),
     L!(81, Subject::TiengViet, "Vần", "Bài 36. ơm", "Từ nào có vần ơm?", Picture::RhymeCard("ơm", "cơm"), ["ba", "bò", "cơm", "lá"], 2),
     L!(82, Subject::TiengViet, "Vần", "Bài 38. ai", "Từ nào có vần ai?", Picture::RhymeCard("ai", "tai"), ["bò", "mẹ", "cơm", "tai"], 3),
-    L!(83, Subject::TiengViet, "Vần", "Bài 39. ơi", "Từ nào có vần ơi?", Picture::RhymeCard("ơi", "tôi"), ["tôi", "ba", "cá", "lá"], 0),
+    L!(83, Subject::TiengViet, "Vần", "Bài 39. ơi", "Từ nào có vần ơi?", Picture::RhymeCard("ơi", "chơi"), ["chơi", "ba", "cá", "lá"], 0),
     L!(84, Subject::TiengViet, "Vần", "Bài 42. ao", "Từ nào có vần ao?", Picture::RhymeCard("ao", "sao"), ["mẹ", "bò", "sao", "cơm"], 2),
     L!(85, Subject::TiengViet, "Vần", "Bài 43. âu", "Từ nào có vần âu?", Picture::RhymeCard("âu", "câu"), ["ba", "câu", "bò", "lá"], 1),
     L!(86, Subject::TiengViet, "Ôn tập tập 1", "Chữ thường a", "Đâu là chữ a viết thường?", Picture::LetterCard("a", "a"), ["A", "Ă", "Â", "a"], 3),
@@ -280,30 +280,30 @@ const LESSONS: [Lesson; 201] = [
     L!(142, Subject::TiengViet, "Chữ cái", "Bài 22. Tr", "Từ nào có tr?", Picture::RhymeCard("tr", "trời"), ["cá", "bò", "mẹ", "trời"], 3),
     L!(143, Subject::TiengViet, "Chữ cái", "Bài 26. Ph", "Từ nào có ph?", Picture::RhymeCard("ph", "phố"), ["phố", "cá", "bò", "lá"], 0),
     L!(144, Subject::TiengViet, "Chữ cái", "Bài 27. X", "Đâu là chữ X?", Picture::LetterCard("X", "x"), ["K", "Y", "X", "Z"], 2),
-    L!(145, Subject::TiengViet, "Vần", "Bài 33. en", "Từ nào có vần en?", Picture::RhymeCard("en", "bên"), ["bò", "bên", "mơ", "cá"], 1),
+    L!(145, Subject::TiengViet, "Vần", "Bài 33. en", "Từ nào có vần en?", Picture::RhymeCard("en", "kèn"), ["bò", "kèn", "mơ", "cá"], 1),
     L!(146, Subject::TiengViet, "Vần", "Bài 37. em", "Từ nào có vần em?", Picture::RhymeCard("em", "em bé"), ["bò", "cá", "lá", "em bé"], 3),
     L!(147, Subject::TiengViet, "Vần", "Bài 38. ay", "Từ nào có vần ay?", Picture::RhymeCard("ay", "may"), ["may", "bò", "mơ", "cá"], 0),
     L!(148, Subject::TiengViet, "Vần", "Bài 38. ây", "Từ nào có vần ây?", Picture::RhymeCard("ây", "bây"), ["ba", "bây", "bò", "mẹ"], 1),
-    L!(149, Subject::TiengViet, "Vần", "Bài 39. ôi", "Từ nào có vần ôi?", Picture::RhymeCard("ôi", "khôi"), ["tôi", "ba", "cá", "khôi"], 3),
+    L!(149, Subject::TiengViet, "Vần", "Bài 39. ôi", "Từ nào có vần ôi?", Picture::RhymeCard("ôi", "xôi"), ["bò", "ba", "cá", "xôi"], 3),
     L!(150, Subject::TiengViet, "Vần", "Bài 42. eo", "Từ nào có vần eo?", Picture::RhymeCard("eo", "reo"), ["mẹ", "bò", "reo", "cơm"], 2),
-    L!(151, Subject::TiengViet, "Vần", "Bài 43. ều", "Từ nào có vần ều?", Picture::RhymeCard("ều", "diều"), ["diều", "ba", "câu", "bò"], 0),
-    L!(152, Subject::TiengViet, "Vần tập 2", "Bài 44. iu", "Từ nào có vần iu?", Picture::RhymeCard("iu", "xiu"), ["ba", "xiu", "bò", "mẹ"], 1),
+    L!(151, Subject::TiengViet, "Vần", "Bài 43. êu", "Từ nào có vần êu?", Picture::RhymeCard("êu", "diều"), ["diều", "ba", "câu", "bò"], 0),
+    L!(152, Subject::TiengViet, "Vần tập 2", "Bài 44. iu", "Từ nào có vần iu?", Picture::RhymeCard("iu", "rìu"), ["ba", "rìu", "bò", "mẹ"], 1),
     L!(153, Subject::TiengViet, "Vần tập 2", "Bài 44. ưu", "Từ nào có vần ưu?", Picture::RhymeCard("ưu", "ưu tiên"), ["ba", "bò", "ưu tiên", "mẹ"], 2),
     L!(154, Subject::TiengViet, "Vần tập 2", "Bài 46. ăc", "Từ nào có vần ăc?", Picture::RhymeCard("ăc", "lắc"), ["lắc", "ba", "bò", "mẹ"], 0),
     L!(155, Subject::TiengViet, "Vần tập 2", "Bài 47. ôc", "Từ nào có vần ôc?", Picture::RhymeCard("ôc", "sốc"), ["ba", "bò", "mẹ", "sốc"], 3),
-    L!(156, Subject::TiengViet, "Vần tập 2", "Bài 49. ôt", "Từ nào có vần ôt?", Picture::RhymeCard("ôt", "khót"), ["ba", "khót", "bò", "mẹ"], 1),
-    L!(157, Subject::TiengViet, "Vần tập 2", "Bài 51. ết", "Từ nào có vần ết?", Picture::RhymeCard("ết", "kết"), ["ba", "bò", "kết", "mẹ"], 2),
+    L!(156, Subject::TiengViet, "Vần tập 2", "Bài 49. ôt", "Từ nào có vần ôt?", Picture::RhymeCard("ôt", "tốt"), ["ba", "tốt", "bò", "mẹ"], 1),
+    L!(157, Subject::TiengViet, "Vần tập 2", "Bài 51. êt", "Từ nào có vần êt?", Picture::RhymeCard("êt", "kết"), ["ba", "bò", "kết", "mẹ"], 2),
     L!(158, Subject::TiengViet, "Vần tập 2", "Bài 52. ut", "Từ nào có vần ut?", Picture::RhymeCard("ut", "hút"), ["ba", "bò", "mẹ", "hút"], 3),
-    L!(159, Subject::TiengViet, "Vần tập 2", "Bài 53. ắp", "Từ nào có vần ắp?", Picture::RhymeCard("ắp", "kẹp"), ["ba", "kẹp", "bò", "mẹ"], 1),
-    L!(160, Subject::TiengViet, "Vần tập 2", "Bài 54. ợp", "Từ nào có vần ợp?", Picture::RhymeCard("ợp", "cặp"), ["cặp", "ba", "bò", "mẹ"], 0),
-    L!(161, Subject::TiengViet, "Vần tập 2", "Bài 56. ẹp", "Từ nào có vần ẹp?", Picture::RhymeCard("ẹp", "vẹp"), ["ba", "bò", "vẹp", "mẹ"], 2),
+    L!(159, Subject::TiengViet, "Vần tập 2", "Bài 53. ăp", "Từ nào có vần ăp?", Picture::RhymeCard("ăp", "nắp"), ["ba", "nắp", "bò", "mẹ"], 1),
+    L!(160, Subject::TiengViet, "Vần tập 2", "Bài 54. ơp", "Từ nào có vần ơp?", Picture::RhymeCard("ơp", "hợp"), ["hợp", "ba", "bò", "mẹ"], 0),
+    L!(161, Subject::TiengViet, "Vần tập 2", "Bài 56. ep", "Từ nào có vần ep?", Picture::RhymeCard("ep", "đẹp"), ["ba", "bò", "đẹp", "mẹ"], 2),
     L!(162, Subject::TiengViet, "Vần tập 2", "Bài 57. inh", "Từ nào có vần inh?", Picture::RhymeCard("inh", "tinh"), ["ba", "bò", "mẹ", "tinh"], 3),
     L!(163, Subject::TiengViet, "Vần tập 2", "Bài 59. ăng", "Từ nào có vần ăng?", Picture::RhymeCard("ăng", "lăng"), ["lăng", "ba", "bò", "mẹ"], 0),
     L!(164, Subject::TiengViet, "Vần tập 2", "Bài 61. ung", "Từ nào có vần ung?", Picture::RhymeCard("ung", "chung"), ["ba", "bò", "chung", "mẹ"], 2),
     L!(165, Subject::TiengViet, "Vần tập 2", "Bài 62. iên", "Từ nào có vần iên?", Picture::RhymeCard("iên", "liên"), ["ba", "liên", "bò", "mẹ"], 1),
     L!(166, Subject::TiengViet, "Vần tập 2", "Bài 63. yên", "Từ nào có vần yên?", Picture::RhymeCard("yên", "yên bình"), ["ba", "bò", "mẹ", "yên bình"], 3),
     L!(167, Subject::TiengViet, "Vần tập 2", "Bài 66. uôi", "Từ nào có vần uôi?", Picture::RhymeCard("uôi", "nuôi"), ["nuôi", "ba", "bò", "mẹ"], 0),
-    L!(168, Subject::TiengViet, "Vần tập 2", "Bài 67. uốc", "Từ nào có vần uốc?", Picture::RhymeCard("uốc", "muốc"), ["ba", "muốc", "bò", "mẹ"], 1),
+    L!(168, Subject::TiengViet, "Vần tập 2", "Bài 67. uôc", "Từ nào có vần uôc?", Picture::RhymeCard("uôc", "thuốc"), ["ba", "thuốc", "bò", "mẹ"], 1),
     L!(169, Subject::TiengViet, "Vần tập 2", "Bài 68. uôn", "Từ nào có vần uôn?", Picture::RhymeCard("uôn", "khuôn"), ["ba", "bò", "mẹ", "khuôn"], 3),
     L!(170, Subject::TiengViet, "Vần tập 2", "Bài 74. oa", "Từ nào có vần oa?", Picture::RhymeCard("oa", "hoa"), ["ba", "bò", "hoa", "mẹ"], 2),
     L!(171, Subject::TiengViet, "Vần tập 2", "Bài 76. oan", "Từ nào có vần oan?", Picture::RhymeCard("oan", "xoan"), ["xoan", "ba", "bò", "mẹ"], 0),
@@ -559,5 +559,74 @@ mod tests {
             .collect();
         assert!(anh.iter().any(|u| u.contains("Unit 1")));
         assert!(anh.iter().any(|u| u.contains("Unit 16")));
+    }
+
+    /// Drop tone marks but keep quality marks (â ê ô, ă, ơ ư), because `ua`/`ưa`
+    /// and `am`/`ăm` are different rhymes and mixing them is the bug this guards.
+    fn without_tone(input: &str) -> String {
+        input
+            .chars()
+            .map(|c| match c {
+                'à' | 'á' | 'ạ' | 'ả' | 'ã' => 'a',
+                'ằ' | 'ắ' | 'ặ' | 'ẳ' | 'ẵ' => 'ă',
+                'ầ' | 'ấ' | 'ậ' | 'ẩ' | 'ẫ' => 'â',
+                'è' | 'é' | 'ẹ' | 'ẻ' | 'ẽ' => 'e',
+                'ề' | 'ế' | 'ệ' | 'ể' | 'ễ' => 'ê',
+                'ì' | 'í' | 'ị' | 'ỉ' | 'ĩ' => 'i',
+                'ò' | 'ó' | 'ọ' | 'ỏ' | 'õ' => 'o',
+                'ồ' | 'ố' | 'ộ' | 'ổ' | 'ỗ' => 'ô',
+                'ờ' | 'ớ' | 'ợ' | 'ở' | 'ỡ' => 'ơ',
+                'ù' | 'ú' | 'ụ' | 'ủ' | 'ũ' => 'u',
+                'ừ' | 'ứ' | 'ự' | 'ử' | 'ữ' => 'ư',
+                'ỳ' | 'ý' | 'ỵ' | 'ỷ' | 'ỹ' => 'y',
+                'À' | 'Á' | 'Ạ' | 'Ả' | 'Ã' => 'A',
+                'Ằ' | 'Ắ' | 'Ặ' | 'Ẳ' | 'Ẵ' => 'Ă',
+                'Ầ' | 'Ấ' | 'Ậ' | 'Ẩ' | 'Ẫ' => 'Â',
+                'È' | 'É' | 'Ẹ' | 'Ẻ' | 'Ẽ' => 'E',
+                'Ề' | 'Ế' | 'Ệ' | 'Ể' | 'Ễ' => 'Ê',
+                'Ì' | 'Í' | 'Ị' | 'Ỉ' | 'Ĩ' => 'I',
+                'Ò' | 'Ó' | 'Ọ' | 'Ỏ' | 'Õ' => 'O',
+                'Ồ' | 'Ố' | 'Ộ' | 'Ổ' | 'Ỗ' => 'Ô',
+                'Ờ' | 'Ớ' | 'Ợ' | 'Ở' | 'Ỡ' => 'Ơ',
+                'Ù' | 'Ú' | 'Ụ' | 'Ủ' | 'Ũ' => 'U',
+                'Ừ' | 'Ứ' | 'Ự' | 'Ử' | 'Ữ' => 'Ư',
+                'Ỳ' | 'Ý' | 'Ỵ' | 'Ỷ' | 'Ỹ' => 'Y',
+                other => other,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn rhyme_card_word_and_answer_contain_the_rhyme() {
+        let mut checked = 0;
+        for lesson in all_lessons() {
+            let Picture::RhymeCard(rhyme, word) = lesson.picture else {
+                continue;
+            };
+            checked += 1;
+            let needle = without_tone(rhyme);
+            assert!(
+                without_tone(word).contains(&needle),
+                "bài {}: thẻ vần {rhyme:?} nhưng từ mẫu {word:?} không chứa vần đó",
+                lesson.id
+            );
+            let answer = lesson.choices[lesson.correct];
+            assert!(
+                without_tone(answer).contains(&needle),
+                "bài {}: đáp án đúng {answer:?} không chứa vần {rhyme:?}",
+                lesson.id
+            );
+            let hits = lesson
+                .choices
+                .iter()
+                .filter(|choice| without_tone(choice).contains(&needle))
+                .count();
+            assert_eq!(
+                hits, 1,
+                "bài {}: {hits} lựa chọn chứa vần {rhyme:?} trong {:?}, chỉ được đúng 1",
+                lesson.id, lesson.choices
+            );
+        }
+        assert_eq!(checked, 58, "số thẻ vần trong bank đã đổi");
     }
 }
