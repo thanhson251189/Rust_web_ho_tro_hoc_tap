@@ -84,7 +84,11 @@ h2.unit {
 }
 .brand { color: var(--toan); font-weight: 800; letter-spacing: .02em; margin: 0 0 .5rem; }
 .sub { color: var(--muted); font-size: 1.12rem; margin: .5rem 0 1.4rem; text-wrap: pretty; max-width: 38rem; }
-.nav { margin: 0 0 1.1rem; }
+/* Wraps so two links never touch on a phone and never overflow at 320px. */
+.nav {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: .5rem 1.25rem; margin: 0 0 1.1rem;
+}
 .nav a {
   color: var(--muted); font-weight: 800; text-decoration: none;
   min-height: 2.75rem; display: inline-flex; align-items: center; gap: .3rem;
@@ -106,7 +110,15 @@ a.face:nth-child(2) .bubble { background: linear-gradient(160deg, #fff 0 55%, va
 a.face:nth-child(3) .bubble { background: linear-gradient(160deg, #fff 0 55%, var(--anh-soft)); }
 a.face:hover .bubble { transform: translateY(-5px) rotate(-2deg); }
 .face .name { display: block; margin-top: .6rem; font-family: "Baloo 2", sans-serif; font-size: 1.3rem; font-weight: 700; }
-.hello { display: flex; gap: 1.1rem; align-items: center; margin: 0 0 1.3rem; }
+/* Wraps so the badge drops to its own line instead of being squeezed flat. */
+.hello {
+  display: flex; flex-wrap: wrap; gap: 1.1rem; align-items: center;
+  margin: 0 0 1.3rem;
+}
+/* Small basis (10rem fits beside the 4.6rem avatar even at 320px) plus
+   min-width: 0, so the text column shrinks instead of pushing the avatar onto a
+   line of its own; the badge wraps only when its own 116px no longer fit. */
+.hello > div { flex: 1 1 10rem; min-width: 0; }
 .bubble.tiny {
   width: 4.6rem; height: 4.6rem; flex: 0 0 auto; border-radius: 36% 64% 58% 42% / 52% 44% 56% 48%;
   display: grid; place-items: center; font-size: 2.3rem;
@@ -184,6 +196,7 @@ input:focus, select:focus { border-color: var(--anh); outline: none; }
 .star-count {
   margin-left: auto; color: #b07d00; background: #fff3c9;
   border-radius: 999px; padding: .15rem .7rem; font-size: 1.05rem;
+  flex: 0 0 auto; white-space: nowrap;
 }
 .star-count.big { margin-left: 0; font-size: 1.3rem; padding: .35rem 1rem; }
 .prompt {
@@ -980,10 +993,10 @@ pub fn home(profile: &Profile, stars: usize) -> String {
         "Học nào",
         &format!(
             "<div class=nav><a href=/profiles>← Đổi hồ sơ</a><a href=/profiles/{pid}/bao-cao>📊 Báo cáo của bố mẹ</a></div>\
-<div class=hello><span class=bubble tiny>{emoji}</span>\
+<div class=hello><span class='bubble tiny'>{emoji}</span>\
 <div><h1>Xin chào, {name}!</h1>\
 <p class=sub>Chọn một phòng học. Bé làm từng bài, không cần đọc chữ nhỏ.</p></div>\
-<span class=star-count big aria-label='tổng sao'>⭐ {stars} sao</span></div>\
+<span class='star-count big' aria-label='tổng sao'>⭐ {stars} sao</span></div>\
 <div class=worlds>{worlds}</div>",
             pid = profile.id,
             name = escape(&profile.name),
@@ -1450,10 +1463,163 @@ mod tests {
         assert!(rule_body(STYLES, ".word-card {").contains("flex-wrap"));
     }
 
+    #[test]
+    fn star_badge_never_wraps_inside_itself() {
+        let badge = rule_body(STYLES, ".star-count {");
+        assert!(badge.contains("white-space"), ".star-count: {badge}");
+        assert!(badge.contains("nowrap"), ".star-count: {badge}");
+        assert!(rule_body(STYLES, ".hello {").contains("flex-wrap"));
+    }
+
     fn rule_body<'a>(css: &'a str, selector: &str) -> &'a str {
         let start = css.find(selector).expect(selector);
         let after = &css[start + selector.len()..];
         let end = after.find('}').expect(selector);
         &after[..end]
+    }
+
+    /// Every class the stylesheet defines, taken from the rules themselves so the
+    /// check below cannot drift from STYLES.
+    fn class_names_in(css: &str) -> std::collections::HashSet<String> {
+        let chars: Vec<char> = css.chars().collect();
+        let mut names = std::collections::HashSet::new();
+        let mut i = 0;
+        while i < chars.len() {
+            let starts_class =
+                chars[i] == '.' && chars.get(i + 1).is_some_and(|c| c.is_ascii_alphabetic());
+            if !starts_class {
+                i += 1;
+                continue;
+            }
+            let mut end = i + 1;
+            while chars
+                .get(end)
+                .is_some_and(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
+            {
+                end += 1;
+            }
+            names.insert(chars[i + 1..end].iter().collect());
+            i = end;
+        }
+        names
+    }
+
+    /// `class=bubble tiny` is unquoted, so the parser reads the class as `bubble`
+    /// and `tiny` as a stray attribute: the second class silently disappears.
+    /// Returns every spot where the word after an unquoted class value is itself
+    /// a class from the stylesheet, i.e. a class that was meant to apply and will not.
+    fn swallowed_classes(html: &str, classes: &std::collections::HashSet<String>) -> Vec<String> {
+        let mut found = Vec::new();
+        let mut rest = html;
+        while let Some(at) = rest.find("class=") {
+            rest = &rest[at + "class=".len()..];
+            if rest.starts_with('\'') || rest.starts_with('"') {
+                continue;
+            }
+            let end = rest.find([' ', '>', '\n']).unwrap_or(rest.len());
+            let value = &rest[..end];
+            let after = &rest[end..];
+            if value.is_empty() || !after.starts_with(' ') {
+                continue;
+            }
+            let next: String = after[1..]
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
+                .collect();
+            if classes.contains(&next) {
+                found.push(format!("class={value} {next}"));
+            }
+        }
+        found
+    }
+
+    #[test]
+    fn unquoted_class_never_swallows_a_second_class() {
+        let classes = class_names_in(STYLES);
+        for expected in ["bubble", "tiny", "star-count", "big"] {
+            assert!(classes.contains(expected), "STYLES thiếu class {expected}");
+        }
+
+        let profile = Profile {
+            id: 1,
+            user_id: 1,
+            name: "An".into(),
+            avatar_key: "robot".into(),
+            sort_order: 0,
+        };
+        let done = std::collections::HashSet::new();
+        let mut pages = vec![
+            picker(std::slice::from_ref(&profile), None, true),
+            picker(&[], Some("Nhập tên hồ sơ."), true),
+            home(&profile, 3),
+            subject_page(&profile, Subject::Toan, &[], &done, None),
+            subject_page(
+                &profile,
+                Subject::Toan,
+                &for_subject(Subject::Toan),
+                &done,
+                Some(1),
+            ),
+            report_page(
+                &profile,
+                &[(Subject::Toan, 1, 62)],
+                &[DayStat {
+                    day: "2026-09-08".into(),
+                    lessons_done: 1,
+                    answers: 2,
+                }],
+                &[crate::lessons::by_id(1).unwrap()],
+            ),
+            write_failed(),
+            missing_profile(),
+        ];
+        for picture in [
+            Picture::None,
+            Picture::Stars(3),
+            Picture::Apples(0),
+            Picture::Apples(2),
+            Picture::Dots(3),
+            Picture::Blocks(2),
+            Picture::Compare(3, 2),
+            Picture::Join(2, 1),
+            Picture::Tomatoes(1, 2),
+            Picture::Chart100(5),
+            Picture::Clock(3, 0),
+            Picture::Week,
+            Picture::FlatShape(FlatShape::Circle),
+            Picture::FlatShapes,
+            Picture::SolidShape(SolidShape::Cube),
+            Picture::Ruler,
+            Picture::Emoji("\u{1F392}"),
+            Picture::LetterCard("A", "a"),
+            Picture::RhymeCard("ưa", "mưa"),
+            Picture::WordCard("B", "ball", "\u{26BD}"),
+        ] {
+            let lesson = Lesson {
+                id: 1,
+                subject: Subject::Toan,
+                unit: "unit",
+                title: "title",
+                prompt: "prompt",
+                picture,
+                choices: ["1", "2", "3", "4"],
+                correct: 0,
+            };
+            pages.push(lesson_page(&profile, &lesson, 0, 4, 2, None));
+            pages.push(lesson_page(
+                &profile,
+                &lesson,
+                0,
+                4,
+                2,
+                Some(Flash::Correct { next_id: Some(2) }),
+            ));
+        }
+
+        let mut swallowed = Vec::new();
+        for page in &pages {
+            swallowed.extend(swallowed_classes(page, &classes));
+        }
+        assert!(swallowed.is_empty(), "class bị parser nuốt: {swallowed:?}");
     }
 }
