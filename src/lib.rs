@@ -151,28 +151,33 @@ async fn create_profile(
     ))
 }
 
-async fn open_profile(State(state): State<AppState>, Path(id): Path<i64>) -> Html<String> {
+/// A page for something that does not exist is a 404, not a valid page.
+fn not_found(body: String) -> Response {
+    (StatusCode::NOT_FOUND, Html(body)).into_response()
+}
+
+async fn open_profile(State(state): State<AppState>, Path(id): Path<i64>) -> Response {
     match state.profile(id) {
         Some(profile) => {
             let stars = {
                 let db = state.db();
                 crate::store::total_stars(&db, profile.id).unwrap_or(0)
             };
-            Html(html::home(&profile, stars))
+            Html(html::home(&profile, stars)).into_response()
         }
-        None => Html(html::missing_profile()),
+        None => not_found(html::missing_profile()),
     }
 }
 
 async fn subject_page(
     State(state): State<AppState>,
     Path((id, slug)): Path<(i64, String)>,
-) -> Html<String> {
+) -> Response {
     let Some(profile) = state.profile(id) else {
-        return Html(html::missing_profile());
+        return not_found(html::missing_profile());
     };
     let Some(subject) = Subject::parse(&slug) else {
-        return Html(html::missing_subject());
+        return not_found(html::missing_subject());
     };
     let lessons = for_subject(subject);
     let done = state.done_lesson_ids(profile.id);
@@ -184,11 +189,12 @@ async fn subject_page(
     Html(html::subject_page(
         &profile, subject, &lessons, &done, start_id,
     ))
+    .into_response()
 }
 
-async fn report_page(State(state): State<AppState>, Path(id): Path<i64>) -> Html<String> {
+async fn report_page(State(state): State<AppState>, Path(id): Path<i64>) -> Response {
     let Some(profile) = state.profile(id) else {
-        return Html(html::missing_profile());
+        return not_found(html::missing_profile());
     };
     let db = state.db();
     let progress = crate::store::progress_for_profile(&db, profile.id).expect("read progress");
@@ -213,7 +219,7 @@ async fn report_page(State(state): State<AppState>, Path(id): Path<i64>) -> Html
         .collect();
     hard.sort_by_key(|l| l.id);
     let hard: Vec<&Lesson> = hard.into_iter().take(8).collect();
-    Html(html::report_page(&profile, &per_subject, &days, &hard))
+    Html(html::report_page(&profile, &per_subject, &days, &hard)).into_response()
 }
 
 #[derive(Deserialize)]
@@ -226,7 +232,7 @@ async fn lesson_page(
     State(state): State<AppState>,
     Path((id, lesson_id)): Path<(i64, u32)>,
     Query(query): Query<LessonQuery>,
-) -> Html<String> {
+) -> Response {
     let flash = result_flash(&state, id, lesson_id, &query);
     render_lesson(&state, id, lesson_id, flash)
 }
@@ -290,12 +296,14 @@ async fn answer_lesson(
     Form(form): Form<Answer>,
 ) -> Response {
     // The profile id comes from the URL, so it must be checked against this
-    // parent's own profiles before anything is written to it.
+    // parent's own profiles before anything is written to it. A profile that is
+    // not ours and a lesson that does not exist answer the same way, so the
+    // response never says which of the two was wrong.
     if state.profile(id).is_none() {
-        return Html(html::missing_profile()).into_response();
+        return not_found(html::missing_profile());
     }
     let Some(lesson) = by_id(lesson_id) else {
-        return Html(html::missing()).into_response();
+        return not_found(html::missing());
     };
     let correct = form.choice == lesson.correct;
     {
@@ -357,12 +365,12 @@ fn render_lesson(
     profile_id: i64,
     lesson_id: u32,
     flash: Option<Flash>,
-) -> Html<String> {
+) -> Response {
     let Some(profile) = state.profile(profile_id) else {
-        return Html(html::missing_profile());
+        return not_found(html::missing_profile());
     };
     let Some(lesson) = by_id(lesson_id) else {
-        return Html(html::missing());
+        return not_found(html::missing());
     };
     let lessons = for_subject(lesson.subject);
     let index = lessons
@@ -381,6 +389,7 @@ fn render_lesson(
         stars,
         flash,
     ))
+    .into_response()
 }
 
 #[cfg(test)]
@@ -499,7 +508,10 @@ mod tests {
             .unwrap();
         let html = body_of(third).await;
         assert!(html.contains("Tối đa 2 hồ sơ."));
-        assert!(!html.contains("Chi"));
+        // Đếm theo thẻ hồ sơ, không dò chuỗi con trong cả trang: chữ "Chi" có
+        // thể xuất hiện trong CSS/JS hợp lệ (firstElementChild) và làm đỏ oan.
+        assert_eq!(html.matches("<span class=name>").count(), 2);
+        assert!(!html.contains("<span class=name>Chi</span>"));
     }
 
     #[tokio::test]
@@ -532,7 +544,7 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
         let html = body_of(response).await;
         assert!(html.contains("Không có hồ sơ này"));
         assert!(!html.contains("Không có trang này"));
@@ -550,7 +562,7 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
         let html = body_of(response).await;
         assert!(html.contains("Không có môn này"));
         assert!(!html.contains("Bắt đầu bài 1"));
@@ -835,6 +847,37 @@ mod tests {
         assert!(!html.contains("/profiles/1/bai/2"));
     }
 
+    #[tokio::test]
+    async fn missing_pages_answer_404() {
+        let app = add_an(test_app()).await;
+        for uri in [
+            "/profiles/999",
+            "/profiles/999/bao-cao",
+            "/profiles/1/mon/nope",
+            "/profiles/1/bai/9999",
+            "/profiles/999/bai/1",
+        ] {
+            let response = app
+                .clone()
+                .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NOT_FOUND, "{uri}");
+        }
+
+        // Trang hợp lệ vẫn phải 200, nếu không thì 404 đã bị trả nhầm chỗ.
+        let home = app
+            .oneshot(
+                Request::builder()
+                    .uri("/profiles/1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(home.status(), StatusCode::OK);
+    }
+
     async fn get_html(router: &axum::Router, uri: &str) -> String {
         let response = router
             .clone()
@@ -1103,7 +1146,7 @@ mod tests {
         }
 
         let response = post_choice(&router, "/profiles/2/bai/1", "choice=0").await;
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
         let html = body_of(response).await;
         assert!(html.contains("Không có hồ sơ này"));
         assert!(!html.contains("Giỏi quá"));

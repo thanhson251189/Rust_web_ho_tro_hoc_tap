@@ -89,6 +89,7 @@ pub fn migrate(conn: &Connection) -> Result<(), StoreError> {
             correct INTEGER NOT NULL,
             at TEXT NOT NULL
         );
+        CREATE INDEX IF NOT EXISTS idx_answer_events_profile ON answer_events(profile_id);
         ",
     )?;
     Ok(())
@@ -577,6 +578,26 @@ mod tests {
         assert!(result.is_err());
         assert!(progress_for_profile(&conn, profile.id).unwrap().is_empty());
         assert_eq!(total_stars(&conn, profile.id).unwrap(), 0);
+    }
+
+    #[test]
+    fn migrate_indexes_answer_events_by_profile() {
+        let conn = open_memory().unwrap();
+        let found: Option<String> = conn
+            .query_row(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?1",
+                params!["idx_answer_events_profile"],
+                |row| row.get(0),
+            )
+            .optional()
+            .unwrap();
+        assert_eq!(found.as_deref(), Some("idx_answer_events_profile"));
+
+        // Và báo cáo vẫn chạy đúng sau khi có index.
+        let parent = user(&conn);
+        let profile = add_profile(&conn, parent.id, "An", "robot").unwrap();
+        record_answer_at(&conn, profile.id, 1, true, "2026-09-08 01:00:00").unwrap();
+        assert_eq!(daily_activity(&conn, profile.id, 7).unwrap().len(), 1);
     }
 
     #[test]

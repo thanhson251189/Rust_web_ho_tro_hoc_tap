@@ -205,7 +205,7 @@ input:focus, select:focus { border-color: var(--anh); outline: none; }
   border-radius: 999px; padding: .15rem .7rem; font-size: 1.05rem;
   flex: 0 0 auto; white-space: nowrap;
 }
-.star-count.big { margin-left: 0; font-size: 1.3rem; padding: .35rem 1rem; }
+.star-count.big { font-size: 1.3rem; padding: .35rem 1rem; }
 .prompt {
   font-family: "Baloo 2", sans-serif; font-size: clamp(1.5rem, 4.5vw, 2.1rem);
   font-weight: 700; margin: .35rem 0 .2rem; text-wrap: pretty; line-height: 1.3;
