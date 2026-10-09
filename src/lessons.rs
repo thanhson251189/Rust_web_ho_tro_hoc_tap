@@ -160,46 +160,46 @@ const LESSONS: [Lesson; 201] = [
     L!(1, Subject::Toan, "Các số từ 0 đến 10", "Bài 1. Số 0 đến 5", "Có bao nhiêu ngôi sao?", Picture::Stars(3), ["3", "2", "4", "1"], 0),
     L!(2, Subject::Toan, "Các số từ 0 đến 10", "Bài 1. Không có quả nào", "Có bao nhiêu quả táo?", Picture::Apples(0), ["1", "0", "2", "3"], 1),
     L!(3, Subject::Toan, "Các số từ 0 đến 10", "Bài 2. Số 6 đến 10", "Có bao nhiêu quả táo?", Picture::Apples(8), ["7", "9", "8", "10"], 2),
-    L!(4, Subject::Toan, "Các số từ 0 đến 10", "Bài 2. Số 10", "10 là số nào?", Picture::None, ["01", "11", "100", "10"], 3),
+    L!(4, Subject::Toan, "Các số từ 0 đến 10", "Bài 2. Số 10", "10 là số nào?", Picture::Dots(10), ["01", "11", "100", "10"], 3),
     L!(5, Subject::Toan, "Các số từ 0 đến 10", "Bài 3. Nhiều hơn", "Nhóm nào nhiều hơn: 5 chấm hay 3 chấm?", Picture::Compare(5, 3), ["3 chấm", "5 chấm", "bằng nhau", "không biết"], 1),
     L!(6, Subject::Toan, "Các số từ 0 đến 10", "Bài 3. Ít hơn", "Số nào ít hơn?", Picture::Compare(6, 7), ["6", "9", "8", "7"], 0),
     L!(7, Subject::Toan, "Các số từ 0 đến 10", "Bài 3. Bằng nhau", "4 chấm và 4 sao thì thế nào?", Picture::Compare(4, 4), ["nhiều hơn", "ít hơn", "bằng nhau", "không so được"], 2),
-    L!(8, Subject::Toan, "Các số từ 0 đến 10", "Bài 4. So sánh số", "Số nào lớn hơn?", Picture::None, ["2", "4", "1", "9"], 3),
+    L!(8, Subject::Toan, "Các số từ 0 đến 10", "Bài 4. So sánh số", "Số nào lớn hơn?", Picture::Compare(1, 9), ["2", "4", "1", "9"], 3),
     L!(9, Subject::Toan, "Các số từ 0 đến 10", "Bài 4. Dấu >", "Chọn dấu đúng: 7 □ 5", Picture::Compare(7, 5), [">", "<", "=", "+"], 0),
-    L!(10, Subject::Toan, "Các số từ 0 đến 10", "Bài 5. Mấy và mấy", "5 gồm 2 và mấy?", Picture::None, ["2", "4", "3", "5"], 2),
-    L!(11, Subject::Toan, "Các số từ 0 đến 10", "Bài 5. Tách 6", "6 gồm 4 và mấy?", Picture::None, ["1", "2", "3", "4"], 1),
-    L!(12, Subject::Toan, "Các số từ 0 đến 10", "Bài 6. Luyện tập số", "1, 2, 3, __, 5. Số còn thiếu?", Picture::None, ["6", "2", "0", "4"], 3),
+    L!(10, Subject::Toan, "Các số từ 0 đến 10", "Bài 5. Mấy và mấy", "5 gồm 2 và mấy?", Picture::Join(2, 3), ["2", "4", "3", "5"], 2),
+    L!(11, Subject::Toan, "Các số từ 0 đến 10", "Bài 5. Tách 6", "6 gồm 4 và mấy?", Picture::Join(4, 2), ["1", "2", "3", "4"], 1),
+    L!(12, Subject::Toan, "Các số từ 0 đến 10", "Bài 6. Luyện tập số", "1, 2, 3, __, 5. Số còn thiếu?", Picture::Dots(4), ["6", "2", "0", "4"], 3),
     // Chủ đề 2 — Hình phẳng
     L!(13, Subject::Toan, "Hình phẳng", "Bài 7. Hình tròn", "Hình nào lăn được, không có góc?", Picture::FlatShapes, ["tròn", "vuông", "tam giác", "chữ nhật"], 0),
     L!(14, Subject::Toan, "Hình phẳng", "Bài 7. Hình vuông", "Hình nào có 4 cạnh bằng nhau?", Picture::FlatShapes, ["tròn", "vuông", "tam giác", "đường thẳng"], 1),
     L!(15, Subject::Toan, "Hình phẳng", "Bài 7. Hình tam giác", "Tam giác có bao nhiêu cạnh?", Picture::FlatShape(FlatShape::Triangle), ["2", "4", "5", "3"], 3),
-    L!(16, Subject::Toan, "Hình phẳng", "Bài 8. Xếp hình", "Ghép 2 tam giác vuông lớn có thể được hình nào?", Picture::None, ["tròn", "chấm", "vuông", "số 8"], 2),
+    L!(16, Subject::Toan, "Hình phẳng", "Bài 8. Xếp hình", "Ghép 2 tam giác vuông lớn có thể được hình nào?", Picture::FlatShape(FlatShape::Square), ["tròn", "chấm", "vuông", "số 8"], 2),
     L!(17, Subject::Toan, "Hình phẳng", "Bài 9. Luyện tập hình", "Hình chữ nhật khác hình vuông ở chỗ nào?", Picture::FlatShapes, ["không phải mọi cạnh đều bằng nhau", "có 3 cạnh", "không có góc", "là hình tròn"], 0),
     // Chủ đề 3 — Cộng trừ phạm vi 10
     L!(18, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 10. Cộng 3 + 2", "3 + 2 = ?", Picture::Blocks(5), ["4", "5", "6", "32"], 1),
     L!(19, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 10. Cộng 5 + 2", "5 + 2 = ?", Picture::Join(5, 2), ["6", "52", "7", "3"], 2),
     L!(20, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 10. Cộng 4 + 4", "4 + 4 = ?", Picture::Join(4, 4), ["8", "44", "7", "6"], 0),
-    L!(21, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 11. Trừ 5 − 1", "5 − 1 = ?", Picture::None, ["6", "51", "3", "4"], 3),
-    L!(22, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 11. Trừ 7 − 3", "7 − 3 = ?", Picture::None, ["10", "4", "3", "5"], 1),
-    L!(23, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 11. Trừ 10 − 2", "10 − 2 = ?", Picture::None, ["12", "2", "8", "9"], 2),
-    L!(24, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 12. Bảng cộng", "6 + 1 = ?", Picture::None, ["5", "61", "8", "7"], 3),
-    L!(25, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 12. Bảng trừ", "9 − 9 = ?", Picture::None, ["9", "0", "1", "18"], 1),
-    L!(26, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 13. Luyện tập cộng trừ", "8 + 2 = ?", Picture::None, ["10", "9", "6", "82"], 0),
+    L!(21, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 11. Trừ 5 − 1", "5 − 1 = ?", Picture::Dots(5), ["6", "51", "3", "4"], 3),
+    L!(22, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 11. Trừ 7 − 3", "7 − 3 = ?", Picture::Dots(7), ["10", "4", "3", "5"], 1),
+    L!(23, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 11. Trừ 10 − 2", "10 − 2 = ?", Picture::Dots(10), ["12", "2", "8", "9"], 2),
+    L!(24, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 12. Bảng cộng", "6 + 1 = ?", Picture::Join(6, 1), ["5", "61", "8", "7"], 3),
+    L!(25, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 12. Bảng trừ", "9 − 9 = ?", Picture::Dots(9), ["9", "0", "1", "18"], 1),
+    L!(26, Subject::Toan, "Cộng trừ trong phạm vi 10", "Bài 13. Luyện tập cộng trừ", "8 + 2 = ?", Picture::Join(8, 2), ["10", "9", "6", "82"], 0),
     // Chủ đề 4 — Hình khối
     L!(27, Subject::Toan, "Hình khối", "Bài 14. Khối lập phương", "Viên xúc xắc giống hình nào nhất?", Picture::SolidShape(SolidShape::Cube), ["hình tròn", "tam giác", "khối lập phương", "đường thẳng"], 2),
     L!(28, Subject::Toan, "Hình khối", "Bài 14. Khối hộp chữ nhật", "Hộp sữa thường giống hình nào?", Picture::SolidShape(SolidShape::Cuboid), ["khối cầu", "tam giác", "số 0", "khối hộp chữ nhật"], 3),
-    L!(29, Subject::Toan, "Hình khối", "Bài 15. Trên — dưới", "Mái nhà ở đâu so với nền nhà?", Picture::None, ["trên", "dưới", "trong", "sau"], 0),
+    L!(29, Subject::Toan, "Hình khối", "Bài 15. Trên — dưới", "Mái nhà ở đâu so với nền nhà?", Picture::Emoji("\u{1F3E0}"), ["trên", "dưới", "trong", "sau"], 0),
     L!(30, Subject::Toan, "Hình khối", "Bài 15. Trái — phải", "Trên thước, số 2 nằm bên trái số 3. Số 4 nằm bên nào so với số 3?", Picture::Ruler, ["trên", "dưới", "phải", "giữa"], 2),
     L!(31, Subject::Toan, "Hình khối", "Bài 16. Luyện tập hình khối", "Quả bóng giống hình nào?", Picture::SolidShape(SolidShape::Sphere), ["vuông", "khối cầu", "hộp", "tam giác"], 1),
     // Chủ đề 5 — Ôn HK1
-    L!(32, Subject::Toan, "Ôn tập học kì 1", "Bài 17. Ôn số", "Số liền sau 8 là?", Picture::None, ["7", "10", "18", "9"], 3),
-    L!(33, Subject::Toan, "Ôn tập học kì 1", "Bài 18. Ôn phép tính", "9 − 4 = ?", Picture::None, ["5", "13", "4", "6"], 0),
+    L!(32, Subject::Toan, "Ôn tập học kì 1", "Bài 17. Ôn số", "Số liền sau 8 là?", Picture::Dots(8), ["7", "10", "18", "9"], 3),
+    L!(33, Subject::Toan, "Ôn tập học kì 1", "Bài 18. Ôn phép tính", "9 − 4 = ?", Picture::Dots(9), ["5", "13", "4", "6"], 0),
     L!(34, Subject::Toan, "Ôn tập học kì 1", "Bài 19. Ôn hình", "Hình nào có 4 góc vuông?", Picture::FlatShapes, ["tròn", "vuông", "tam giác", "đường cong"], 1),
-    L!(35, Subject::Toan, "Ôn tập học kì 1", "Bài 20. Ôn chung", "Chọn phép tính đúng", Picture::None, ["2 + 2 = 5", "10 − 1 = 8", "0 + 1 = 0", "3 + 4 = 7"], 3),
+    L!(35, Subject::Toan, "Ôn tập học kì 1", "Bài 20. Ôn chung", "Chọn phép tính đúng", Picture::Join(3, 4), ["2 + 2 = 5", "10 − 1 = 8", "0 + 1 = 0", "3 + 4 = 7"], 3),
     // Tập 2 — Chủ đề 6 số đến 100
     L!(36, Subject::Toan, "Các số đến 100", "Bài 21. Số có hai chữ số", "Số 23 gồm bao nhiêu chục và bao nhiêu đơn vị?", Picture::Tomatoes(2, 3), ["3 chục 2 đơn vị", "23 chục", "2 chục 3 đơn vị", "5 đơn vị"], 2),
-    L!(37, Subject::Toan, "Các số đến 100", "Bài 21. Đọc số", "Số 40 đọc là?", Picture::None, ["bốn mươi", "bốn", "mười bốn", "bốn trăm"], 0),
-    L!(38, Subject::Toan, "Các số đến 100", "Bài 22. So sánh số hai chữ số", "Số nào lớn hơn?", Picture::None, ["19", "91", "18", "29"], 1),
+    L!(37, Subject::Toan, "Các số đến 100", "Bài 21. Đọc số", "Số 40 đọc là?", Picture::Tomatoes(4, 0), ["bốn mươi", "bốn", "mười bốn", "bốn trăm"], 0),
+    L!(38, Subject::Toan, "Các số đến 100", "Bài 22. So sánh số hai chữ số", "Số nào lớn hơn?", Picture::Chart100(91), ["19", "91", "18", "29"], 1),
     L!(39, Subject::Toan, "Các số đến 100", "Bài 23. Bảng số 1–100", "Số đứng ngay sau 29 là?", Picture::Chart100(29), ["28", "39", "30", "20"], 2),
     L!(40, Subject::Toan, "Các số đến 100", "Bài 24. Luyện tập số 100", "100 gồm mấy chục?", Picture::Tomatoes(10, 0), ["10", "1", "100", "0"], 0),
     // Chủ đề 7 đo độ dài
@@ -207,27 +207,27 @@ const LESSONS: [Lesson; 201] = [
     L!(42, Subject::Toan, "Độ dài", "Bài 26. Xăng-ti-mét", "Đơn vị đo độ dài bé học ở lớp 1 thường là?", Picture::Ruler, ["kg", "cm", "giờ", "lít"], 1),
     L!(43, Subject::Toan, "Độ dài", "Bài 27. Ước lượng", "Bút chì khoảng bao nhiêu xăng-ti-mét?", Picture::Ruler, ["1 cm", "100 cm", "15 cm", "1 km"], 2),
     // Chủ đề 8 cộng trừ không nhớ phạm vi 100
-    L!(44, Subject::Toan, "Cộng trừ không nhớ phạm vi 100", "Bài 29. Cộng 32 + 5", "32 + 5 = ?", Picture::None, ["325", "27", "42", "37"], 3),
-    L!(45, Subject::Toan, "Cộng trừ không nhớ phạm vi 100", "Bài 30. Cộng 20 + 10", "20 + 10 = ?", Picture::None, ["21", "30", "2010", "12"], 1),
-    L!(46, Subject::Toan, "Cộng trừ không nhớ phạm vi 100", "Bài 31. Trừ 45 − 3", "45 − 3 = ?", Picture::None, ["42", "48", "15", "43"], 0),
-    L!(47, Subject::Toan, "Cộng trừ không nhớ phạm vi 100", "Bài 32. Trừ 40 − 10", "40 − 10 = ?", Picture::None, ["50", "4010", "30", "4"], 2),
-    L!(48, Subject::Toan, "Cộng trừ không nhớ phạm vi 100", "Bài 33. Luyện tập", "25 + 4 = ?", Picture::None, ["21", "254", "30", "29"], 3),
+    L!(44, Subject::Toan, "Cộng trừ không nhớ phạm vi 100", "Bài 29. Cộng 32 + 5", "32 + 5 = ?", Picture::Tomatoes(3, 2), ["325", "27", "42", "37"], 3),
+    L!(45, Subject::Toan, "Cộng trừ không nhớ phạm vi 100", "Bài 30. Cộng 20 + 10", "20 + 10 = ?", Picture::Tomatoes(2, 0), ["21", "30", "2010", "12"], 1),
+    L!(46, Subject::Toan, "Cộng trừ không nhớ phạm vi 100", "Bài 31. Trừ 45 − 3", "45 − 3 = ?", Picture::Tomatoes(4, 5), ["42", "48", "15", "43"], 0),
+    L!(47, Subject::Toan, "Cộng trừ không nhớ phạm vi 100", "Bài 32. Trừ 40 − 10", "40 − 10 = ?", Picture::Tomatoes(4, 0), ["50", "4010", "30", "4"], 2),
+    L!(48, Subject::Toan, "Cộng trừ không nhớ phạm vi 100", "Bài 33. Luyện tập", "25 + 4 = ?", Picture::Tomatoes(2, 5), ["21", "254", "30", "29"], 3),
     // Chủ đề 9 giờ và lịch
     L!(49, Subject::Toan, "Giờ và lịch", "Bài 34. Xem giờ đúng", "Kim ngắn chỉ số 3, kim dài chỉ số 12. Mấy giờ?", Picture::Clock(3, 0), ["3 giờ", "12 giờ", "6 giờ", "9 giờ"], 0),
     L!(50, Subject::Toan, "Giờ và lịch", "Bài 35. Ngày trong tuần", "Ngày đứng sau thứ Hai là?", Picture::Week, ["Chủ nhật", "thứ Bảy", "thứ Ba", "thứ Sáu"], 2),
     L!(51, Subject::Toan, "Giờ và lịch", "Bài 36. Xem lịch", "Một tuần có bao nhiêu ngày?", Picture::Week, ["5", "7", "6", "10"], 1),
     // Chủ đề 10 ôn cuối năm
     L!(52, Subject::Toan, "Ôn tập cuối năm", "Bài 38. Ôn phạm vi 10", "6 + 3 = ?", Picture::Apples(9), ["8", "3", "63", "9"], 3),
-    L!(53, Subject::Toan, "Ôn tập cuối năm", "Bài 39. Ôn phạm vi 100", "50 + 20 = ?", Picture::None, ["70", "30", "5020", "52"], 0),
+    L!(53, Subject::Toan, "Ôn tập cuối năm", "Bài 39. Ôn phạm vi 100", "50 + 20 = ?", Picture::Tomatoes(5, 0), ["70", "30", "5020", "52"], 0),
     L!(54, Subject::Toan, "Ôn tập cuối năm", "Bài 40. Ôn đo lường", "Đồng hồ dùng để làm gì?", Picture::Clock(9, 0), ["đo độ dài", "xem giờ", "đếm táo", "vẽ hình"], 1),
-    L!(127, Subject::Toan, "Độ dài", "Bài 28. Luyện tập chung", "Thước nào dài hơn: thước 15 cm hay thước 30 cm?", Picture::None, ["thước 15 cm", "bằng nhau", "không đo được", "thước 30 cm"], 3),
-    L!(128, Subject::Toan, "Độ dài", "Bài 28. Luyện tập chung", "1 gang tay của bé khoảng bao nhiêu?", Picture::None, ["1 cm", "1 m", "10 cm", "10 m"], 2),
-    L!(129, Subject::Toan, "Giờ và lịch", "Bài 37. Luyện tập chung", "Kim phút chỉ số 12, kim giờ chỉ số 6. Mấy giờ?", Picture::None, ["6 giờ", "12 giờ", "6 phút", "nửa giờ"], 0),
-    L!(130, Subject::Toan, "Giờ và lịch", "Bài 37. Luyện tập chung", "Ngày đứng trước thứ Tư là?", Picture::None, ["thứ Năm", "thứ Ba", "thứ Sáu", "Chủ nhật"], 1),
-    L!(131, Subject::Toan, "Ôn tập cuối năm", "Bài 41. Ôn tập chung", "10 + 5 = ?", Picture::None, ["51", "14", "15", "16"], 2),
-    L!(132, Subject::Toan, "Ôn tập cuối năm", "Bài 41. Ôn tập chung", "Nhóm 7 chấm và 7 sao thì thế nào?", Picture::None, ["bằng nhau", "7 chấm nhiều hơn", "7 sao nhiều hơn", "không so được"], 0),
-    L!(133, Subject::Toan, "Ôn tập cuối năm", "Bài 41. Ôn tập chung", "Số nào nhỏ hơn 68?", Picture::None, ["70", "86", "68", "59"], 3),
-    L!(134, Subject::Toan, "Ôn tập cuối năm", "Bài 41. Ôn tập chung", "Kim ngắn chỉ 9, kim dài chỉ 12. Mấy giờ?", Picture::None, ["12 giờ", "9 giờ", "9 phút", "3 giờ"], 1),
+    L!(127, Subject::Toan, "Độ dài", "Bài 28. Luyện tập chung", "Thước nào dài hơn: thước 15 cm hay thước 30 cm?", Picture::Ruler, ["thước 15 cm", "bằng nhau", "không đo được", "thước 30 cm"], 3),
+    L!(128, Subject::Toan, "Độ dài", "Bài 28. Luyện tập chung", "1 gang tay của bé khoảng bao nhiêu?", Picture::Ruler, ["1 cm", "1 m", "10 cm", "10 m"], 2),
+    L!(129, Subject::Toan, "Giờ và lịch", "Bài 37. Luyện tập chung", "Kim phút chỉ số 12, kim giờ chỉ số 6. Mấy giờ?", Picture::Clock(6, 0), ["6 giờ", "12 giờ", "6 phút", "nửa giờ"], 0),
+    L!(130, Subject::Toan, "Giờ và lịch", "Bài 37. Luyện tập chung", "Ngày đứng trước thứ Tư là?", Picture::Week, ["thứ Năm", "thứ Ba", "thứ Sáu", "Chủ nhật"], 1),
+    L!(131, Subject::Toan, "Ôn tập cuối năm", "Bài 41. Ôn tập chung", "10 + 5 = ?", Picture::Join(10, 5), ["51", "14", "15", "16"], 2),
+    L!(132, Subject::Toan, "Ôn tập cuối năm", "Bài 41. Ôn tập chung", "Nhóm 7 chấm và 7 sao thì thế nào?", Picture::Compare(7, 7), ["bằng nhau", "7 chấm nhiều hơn", "7 sao nhiều hơn", "không so được"], 0),
+    L!(133, Subject::Toan, "Ôn tập cuối năm", "Bài 41. Ôn tập chung", "Số nào nhỏ hơn 68?", Picture::Chart100(68), ["70", "86", "68", "59"], 3),
+    L!(134, Subject::Toan, "Ôn tập cuối năm", "Bài 41. Ôn tập chung", "Kim ngắn chỉ 9, kim dài chỉ 12. Mấy giờ?", Picture::Clock(9, 0), ["12 giờ", "9 giờ", "9 phút", "3 giờ"], 1),
     // Tiếng Việt KNTT tập 1 — chữ và vần
     L!(55, Subject::TiengViet, "Chữ cái", "Bài 1. A", "Đâu là chữ A?", Picture::LetterCard("A", "a"), ["A", "O", "U", "I"], 0),
     L!(56, Subject::TiengViet, "Chữ cái", "Bài 2. B", "Từ nào có chữ b?", Picture::RhymeCard("b", "bò"), ["mẹ", "bò", "cá", "nhà"], 1),
@@ -389,6 +389,24 @@ mod tests {
             Picture::FlatShape(FlatShape::Triangle)
         ));
         assert!(matches!(by_id(30).unwrap().picture, Picture::Ruler));
+    }
+
+    #[test]
+    fn math_lessons_all_have_scenes() {
+        for lesson in for_subject(Subject::Toan) {
+            assert_ne!(
+                lesson.picture,
+                Picture::None,
+                "math lesson {} has no scene",
+                lesson.id
+            );
+        }
+        assert!(matches!(by_id(10).unwrap().picture, Picture::Join(2, 3)));
+        assert!(matches!(by_id(129).unwrap().picture, Picture::Clock(6, 0)));
+        assert!(matches!(
+            by_id(132).unwrap().picture,
+            Picture::Compare(7, 7)
+        ));
     }
 
     #[test]
