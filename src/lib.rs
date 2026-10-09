@@ -3,19 +3,21 @@ pub mod lessons;
 pub mod store;
 
 use crate::html::Flash;
-use crate::lessons::{by_id, for_subject, next_after, Lesson, Subject};
+use crate::lessons::{by_id, for_subject, Lesson, Subject};
 use crate::store::{
     add_profile, list_profiles, next_lesson_id, record_answer, upsert_user, Profile, StoreError,
     MAX_PROFILES_PER_USER,
 };
 use axum::{
-    extract::{Path, State},
-    response::{Html, Redirect},
+    extract::{Path, Query, State},
+    http::{header, StatusCode},
+    response::{Html, IntoResponse, Redirect, Response},
     routing::get,
     Form, Router,
 };
 use rusqlite::Connection;
 use serde::Deserialize;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 pub const DEFAULT_DB_PATH: &str = "data/app.sqlite";
@@ -193,11 +195,57 @@ async fn report_page(State(state): State<AppState>, Path(id): Path<i64>) -> Html
     Html(html::report_page(&profile, &per_subject, &days, &hard))
 }
 
+#[derive(Deserialize)]
+struct LessonQuery {
+    kq: Option<String>,
+    tiep: Option<u32>,
+}
+
 async fn lesson_page(
     State(state): State<AppState>,
     Path((id, lesson_id)): Path<(i64, u32)>,
+    Query(query): Query<LessonQuery>,
 ) -> Html<String> {
-    render_lesson(&state, id, lesson_id, None)
+    let flash = result_flash(&state, id, lesson_id, &query);
+    render_lesson(&state, id, lesson_id, flash)
+}
+
+/// `kq=dung` is a display hint. The success banner is shown only after this
+/// profile has actually finished the lesson. `tiep` is kept when it names a
+/// real lesson in the same subject; otherwise the next unfinished lesson is used.
+fn result_flash(
+    state: &AppState,
+    profile_id: i64,
+    lesson_id: u32,
+    query: &LessonQuery,
+) -> Option<Flash> {
+    match query.kq.as_deref() {
+        Some("sai") => Some(Flash::Wrong),
+        Some("dung") => finished_correct_flash(state, profile_id, lesson_id, query.tiep),
+        _ => None,
+    }
+}
+
+fn finished_correct_flash(
+    state: &AppState,
+    profile_id: i64,
+    lesson_id: u32,
+    tiep: Option<u32>,
+) -> Option<Flash> {
+    let lesson = by_id(lesson_id)?;
+    let done = state.done_lesson_ids(profile_id);
+    if !done.contains(&lesson_id) {
+        return None;
+    }
+    let next_id = match tiep {
+        Some(id) if lesson_in_subject(id, lesson.subject) => Some(id),
+        _ => next_unfinished_id(&for_subject(lesson.subject), lesson_id, &done),
+    };
+    Some(Flash::Correct { next_id })
+}
+
+fn lesson_in_subject(lesson_id: u32, subject: Subject) -> bool {
+    by_id(lesson_id).is_some_and(|lesson| lesson.subject == subject)
 }
 
 #[derive(Deserialize)]
@@ -209,9 +257,9 @@ async fn answer_lesson(
     State(state): State<AppState>,
     Path((id, lesson_id)): Path<(i64, u32)>,
     Form(form): Form<Answer>,
-) -> Html<String> {
+) -> Response {
     let Some(lesson) = by_id(lesson_id) else {
-        return Html(html::missing());
+        return Html(html::missing()).into_response();
     };
     let correct = form.choice == lesson.correct;
     {
@@ -219,13 +267,47 @@ async fn answer_lesson(
         let _ = record_answer(&db, id, lesson_id, correct);
     }
     let flash = if correct {
+        let mut done = state.done_lesson_ids(id);
+        done.insert(lesson_id);
         Flash::Correct {
-            next_id: next_after(lesson).map(|next| next.id),
+            next_id: next_unfinished_id(&for_subject(lesson.subject), lesson_id, &done),
         }
     } else {
         Flash::Wrong
     };
-    render_lesson(&state, id, lesson_id, Some(flash))
+    // 303 so a refresh loads the result URL instead of submitting the form again.
+    // The body stays so existing callers that read the POST response still see the flash.
+    let location = match flash {
+        Flash::Correct {
+            next_id: Some(next),
+        } => format!("/profiles/{id}/bai/{lesson_id}?kq=dung&tiep={next}"),
+        Flash::Correct { next_id: None } => format!("/profiles/{id}/bai/{lesson_id}?kq=dung"),
+        Flash::Wrong => format!("/profiles/{id}/bai/{lesson_id}?kq=sai"),
+    };
+    (
+        StatusCode::SEE_OTHER,
+        [(header::LOCATION, location)],
+        render_lesson(&state, id, lesson_id, Some(flash)),
+    )
+        .into_response()
+}
+
+/// Next unfinished lesson in subject order after `current_id`.
+/// If none remain later, the earliest unfinished lesson before it.
+/// `None` when every lesson in the subject is done.
+fn next_unfinished_id(
+    subject_lessons: &[&Lesson],
+    current_id: u32,
+    done: &HashSet<u32>,
+) -> Option<u32> {
+    let pos = subject_lessons
+        .iter()
+        .position(|item| item.id == current_id)?;
+    subject_lessons[pos + 1..]
+        .iter()
+        .chain(subject_lessons[..pos].iter())
+        .find(|item| !done.contains(&item.id))
+        .map(|item| item.id)
 }
 
 fn render_lesson(
@@ -266,11 +348,13 @@ fn render_lesson(
 
 #[cfg(test)]
 mod tests {
-    use super::{app, AppState};
+    use super::{app, next_unfinished_id, AppState};
+    use crate::lessons::{for_subject, Subject};
     use axum::{
         body::{to_bytes, Body},
         http::{Request, StatusCode},
     };
+    use std::collections::HashSet;
     use tower::ServiceExt;
 
     fn test_app() -> axum::Router {
@@ -680,5 +764,251 @@ mod tests {
         let html = body_of(right).await;
         assert!(html.contains("Giỏi quá"));
         assert!(html.contains("/profiles/1/bai/2"));
+    }
+
+    #[tokio::test]
+    async fn correct_answer_skips_already_finished_next_lesson() {
+        let app = add_an(test_app()).await;
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/profiles/1/bai/2")
+                    .header("content-type", form_type())
+                    .body(Body::from("choice=1"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let right = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/profiles/1/bai/1")
+                    .header("content-type", form_type())
+                    .body(Body::from("choice=0"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let html = body_of(right).await;
+        assert!(html.contains("/profiles/1/bai/3"));
+        assert!(!html.contains("/profiles/1/bai/2"));
+    }
+
+    async fn get_html(router: &axum::Router, uri: &str) -> String {
+        let response = router
+            .clone()
+            .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        body_of(response).await
+    }
+
+    async fn post_choice(
+        router: &axum::Router,
+        uri: &str,
+        body: &'static str,
+    ) -> axum::response::Response {
+        router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(uri)
+                    .header("content-type", form_type())
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    }
+
+    fn progress_counts(state: &AppState, profile_id: i64, lesson_id: u32) -> (i64, i64) {
+        let db = state.db.lock().expect("db lock");
+        crate::store::progress_for_profile(&db, profile_id)
+            .expect("read progress")
+            .into_iter()
+            .find(|row| row.lesson_id == lesson_id)
+            .map(|row| (row.correct_count, row.wrong_count))
+            .unwrap_or((0, 0))
+    }
+
+    #[tokio::test]
+    async fn answer_redirects_and_get_shows_flash() {
+        let state = AppState::in_memory().unwrap();
+        let router = add_an(app(state)).await;
+
+        let right = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/profiles/1/bai/1")
+                    .header("content-type", form_type())
+                    .body(Body::from("choice=0"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(right.status(), StatusCode::SEE_OTHER);
+        let right_at = right.headers()["location"].to_str().unwrap().to_string();
+        assert_eq!(right_at, "/profiles/1/bai/1?kq=dung&tiep=2");
+
+        let shown = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(&right_at)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(shown.status(), StatusCode::OK);
+        let html = body_of(shown).await;
+        assert!(html.contains("Giỏi quá, đúng rồi"));
+        assert!(html.contains("/profiles/1/bai/2"));
+
+        // Lesson 2's correct choice is index 1, so 0 is a miss.
+        let wrong = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/profiles/1/bai/2")
+                    .header("content-type", form_type())
+                    .body(Body::from("choice=0"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(wrong.status(), StatusCode::SEE_OTHER);
+        let wrong_at = wrong.headers()["location"].to_str().unwrap().to_string();
+        assert_eq!(wrong_at, "/profiles/1/bai/2?kq=sai");
+
+        let retry = router
+            .oneshot(
+                Request::builder()
+                    .uri(&wrong_at)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(retry.status(), StatusCode::OK);
+        let html = body_of(retry).await;
+        assert!(html.contains("Chưa đúng. Thử lại nhé"));
+    }
+
+    #[tokio::test]
+    async fn refresh_after_redirect_does_not_double_correct_count() {
+        let state = AppState::in_memory().unwrap();
+        let router = add_an(app(state.clone())).await;
+
+        let posted = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/profiles/1/bai/1")
+                    .header("content-type", form_type())
+                    .body(Body::from("choice=0"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(posted.status(), StatusCode::SEE_OTHER);
+        let location = posted.headers()["location"].to_str().unwrap().to_string();
+
+        // The browser follows the 303, then F5 repeats that GET. Neither grades again.
+        for _ in 0..2 {
+            let response = router
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(&location)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let html = body_of(response).await;
+            assert!(html.contains("Giỏi quá, đúng rồi"));
+        }
+
+        assert_eq!(progress_counts(&state, 1, 1), (1, 0));
+        let home = router
+            .oneshot(
+                Request::builder()
+                    .uri("/profiles/1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let html = body_of(home).await;
+        assert!(html.contains("⭐ 1 sao"));
+    }
+
+    #[tokio::test]
+    async fn correct_banner_requires_a_finished_lesson() {
+        let router = add_an(test_app()).await;
+
+        let forged = get_html(&router, "/profiles/1/bai/1?kq=dung").await;
+        assert!(!forged.contains("Giỏi quá"));
+        assert!(!forged.contains("confetti-anchor"));
+
+        // Lesson 3's correct choice is index 2, so 0 leaves done = 0.
+        let missed = post_choice(&router, "/profiles/1/bai/3", "choice=0").await;
+        assert_eq!(missed.status(), StatusCode::SEE_OTHER);
+        let still_open = get_html(&router, "/profiles/1/bai/3?kq=dung").await;
+        assert!(!still_open.contains("Giỏi quá"));
+        assert!(!still_open.contains("confetti-anchor"));
+        let retry = get_html(&router, "/profiles/1/bai/3?kq=sai").await;
+        assert!(retry.contains("Chưa đúng. Thử lại nhé"));
+
+        let posted = post_choice(&router, "/profiles/1/bai/1", "choice=0").await;
+        assert_eq!(posted.status(), StatusCode::SEE_OTHER);
+        let shown = get_html(&router, "/profiles/1/bai/1?kq=dung").await;
+        assert!(shown.contains("Giỏi quá"));
+        assert!(shown.contains("confetti-anchor"));
+    }
+
+    #[tokio::test]
+    async fn forged_tiep_points_at_a_real_lesson_in_the_subject() {
+        let router = add_an(test_app()).await;
+        let posted = post_choice(&router, "/profiles/1/bai/1", "choice=0").await;
+        assert_eq!(posted.status(), StatusCode::SEE_OTHER);
+
+        // 99999 does not exist. 55 is a real lesson in another subject.
+        for tiep in ["99999", "55"] {
+            let html = get_html(&router, &format!("/profiles/1/bai/1?kq=dung&tiep={tiep}")).await;
+            assert!(
+                html.contains("/profiles/1/bai/2"),
+                "tiep={tiep} should fall back to the next real lesson"
+            );
+            assert!(
+                !html.contains(&format!("/profiles/1/bai/{tiep}")),
+                "tiep={tiep} leaked into the page"
+            );
+        }
+
+        let kept = get_html(&router, "/profiles/1/bai/1?kq=dung&tiep=3").await;
+        assert!(kept.contains("/profiles/1/bai/3"));
+    }
+
+    #[test]
+    fn next_unfinished_wraps_to_earlier_gap_then_none() {
+        let lessons = for_subject(Subject::Toan);
+        let mut done: HashSet<u32> = lessons.iter().map(|lesson| lesson.id).collect();
+        done.remove(&1);
+        assert_eq!(next_unfinished_id(&lessons, 3, &done), Some(1));
+        done.insert(1);
+        assert_eq!(next_unfinished_id(&lessons, 3, &done), None);
     }
 }
