@@ -3,6 +3,11 @@ use std::path::Path;
 
 pub const MAX_PROFILES_PER_USER: usize = 2;
 
+/// Answers are stored in UTC, but a Vietnamese parent reads the report in local
+/// time. Vietnam is UTC+7 all year (no DST), so one fixed offset is enough to
+/// move a stored stamp onto the calendar day the parent actually saw.
+const VN_OFFSET: &str = "+7 hours";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct User {
     pub id: i64,
@@ -77,6 +82,13 @@ pub fn migrate(conn: &Connection) -> Result<(), StoreError> {
             last_tried_at TEXT NOT NULL DEFAULT (datetime('now')),
             PRIMARY KEY (profile_id, lesson_id)
         );
+        CREATE TABLE IF NOT EXISTS answer_events (
+            id INTEGER PRIMARY KEY,
+            profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+            lesson_id INTEGER NOT NULL,
+            correct INTEGER NOT NULL,
+            at TEXT NOT NULL
+        );
         ",
     )?;
     Ok(())
@@ -91,31 +103,56 @@ pub struct Progress {
     pub done: bool,
 }
 
-/// Record one answer. `done` flips on the first correct answer and stays on,
-/// so a wrong retry never un-finishes a lesson.
+/// Record one answer now (UTC). See [`record_answer_at`] for the timestamp seam.
+///
+/// `done` flips on the first correct answer and stays on, so a wrong retry never
+/// un-finishes a lesson.
 pub fn record_answer(
     conn: &Connection,
     profile_id: i64,
     lesson_id: u32,
     correct: bool,
 ) -> Result<Progress, StoreError> {
-    conn.execute(
-        "INSERT INTO progress (profile_id, lesson_id, correct_count, wrong_count, done)
-         VALUES (?1, ?2, ?3, ?4, ?5)
+    record_answer_at(conn, profile_id, lesson_id, correct, &now_utc(conn)?)
+}
+
+/// Record one answer stamped `at`, a UTC timestamp ("YYYY-MM-DD HH:MM:SS").
+/// Tests spread answers over several days through this entry point.
+pub fn record_answer_at(
+    conn: &Connection,
+    profile_id: i64,
+    lesson_id: u32,
+    correct: bool,
+    at: &str,
+) -> Result<Progress, StoreError> {
+    // Both writes land or neither does: `progress` alone would count a star the
+    // report cannot explain. The caller holds the connection behind a mutex, so
+    // `unchecked_transaction` (no `&mut` needed) is safe here.
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "INSERT INTO progress (profile_id, lesson_id, correct_count, wrong_count, done, last_tried_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT(profile_id, lesson_id) DO UPDATE SET
             correct_count = correct_count + ?3,
             wrong_count = wrong_count + ?4,
             done = done | ?5,
-            last_tried_at = datetime('now')",
+            last_tried_at = ?6",
         params![
             profile_id,
             lesson_id,
             i64::from(correct),
             i64::from(!correct),
-            i64::from(correct)
+            i64::from(correct),
+            at
         ],
     )?;
-    conn.query_row(
+    // `progress` holds a single row per lesson, so its counters only ever
+    // describe the last visit. Keep every attempt in its own row instead.
+    tx.execute(
+        "INSERT INTO answer_events (profile_id, lesson_id, correct, at) VALUES (?1, ?2, ?3, ?4)",
+        params![profile_id, lesson_id, i64::from(correct), at],
+    )?;
+    let progress = tx.query_row(
         "SELECT profile_id, lesson_id, correct_count, wrong_count, done
          FROM progress WHERE profile_id = ?1 AND lesson_id = ?2",
         params![profile_id, lesson_id],
@@ -128,8 +165,15 @@ pub fn record_answer(
                 done: row.get::<_, i64>(4)? != 0,
             })
         },
-    )
-    .map_err(StoreError::from)
+    )?;
+    tx.commit()?;
+    Ok(progress)
+}
+
+/// SQLite's own clock, so the schema defaults and the app agree on "now".
+fn now_utc(conn: &Connection) -> Result<String, StoreError> {
+    conn.query_row("SELECT datetime('now')", [], |row| row.get(0))
+        .map_err(StoreError::from)
 }
 
 pub fn progress_for_profile(
@@ -186,28 +230,40 @@ pub fn total_stars(conn: &Connection, profile_id: i64) -> Result<usize, StoreErr
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DayStat {
-    /// e.g. "2026-09-07" (UTC day of `last_tried_at`).
+    /// Vietnam calendar day, e.g. "2026-09-07".
     pub day: String,
+    /// Lessons first answered correctly on that day.
     pub lessons_done: i64,
     pub answers: i64,
 }
 
-/// Per-day activity for a profile, most recent day first.
+/// Per-day activity for a profile, most recent day first, read from the
+/// per-answer log so each attempt stays on the day it happened.
+///
+/// Days are Vietnam days even though `at` is stored in UTC; `days` counts
+/// distinct days in the result, not a window.
 pub fn daily_activity(
     conn: &Connection,
     profile_id: i64,
     days: i64,
 ) -> Result<Vec<DayStat>, StoreError> {
-    let mut stmt = conn.prepare(
-        "SELECT date(last_tried_at) AS d,
-                SUM(done) AS lessons_done,
-                SUM(correct_count + wrong_count) AS answers
-         FROM progress
-         WHERE profile_id = ?1
-         GROUP BY d
-         ORDER BY d DESC
-         LIMIT ?2",
-    )?;
+    let sql = format!(
+        "WITH events AS (
+             SELECT date(at, '{VN_OFFSET}') AS d, lesson_id, correct
+             FROM answer_events WHERE profile_id = ?1
+         ),
+         first_done AS (
+             SELECT lesson_id, MIN(d) AS d FROM events WHERE correct = 1 GROUP BY lesson_id
+         )
+         SELECT e.d AS day,
+                (SELECT COUNT(*) FROM first_done f WHERE f.d = e.d) AS lessons_done,
+                COUNT(*) AS answers
+         FROM events e
+         GROUP BY e.d
+         ORDER BY e.d DESC
+         LIMIT ?2"
+    );
+    let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(params![profile_id, days], |row| {
         Ok(DayStat {
             day: row.get(0)?,
@@ -445,6 +501,149 @@ mod tests {
         assert_eq!(rows[0].lessons_done, 2);
         assert_eq!(rows[0].answers, 3);
         assert_eq!(daily_activity(&conn, 999, 7).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn daily_activity_separates_the_days_answers_happened() {
+        let conn = open_memory().unwrap();
+        let parent = user(&conn);
+        let profile = add_profile(&conn, parent.id, "An", "robot").unwrap();
+
+        // Monday: lesson 1 wrong twice then right, lesson 2 right.
+        record_answer_at(&conn, profile.id, 1, false, "2026-09-07 01:00:00").unwrap();
+        record_answer_at(&conn, profile.id, 1, false, "2026-09-07 01:05:00").unwrap();
+        record_answer_at(&conn, profile.id, 1, true, "2026-09-07 01:10:00").unwrap();
+        record_answer_at(&conn, profile.id, 2, true, "2026-09-07 01:15:00").unwrap();
+        // Tuesday: lesson 2 is answered again, which is a try but not a new lesson done.
+        record_answer_at(&conn, profile.id, 2, false, "2026-09-08 01:00:00").unwrap();
+
+        let rows = daily_activity(&conn, profile.id, 7).unwrap();
+        assert_eq!(
+            rows,
+            vec![
+                DayStat {
+                    day: "2026-09-08".to_string(),
+                    lessons_done: 0,
+                    answers: 1,
+                },
+                DayStat {
+                    day: "2026-09-07".to_string(),
+                    lessons_done: 2,
+                    answers: 4,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn daily_activity_days_follow_vietnam_time() {
+        let conn = open_memory().unwrap();
+        let parent = user(&conn);
+        let profile = add_profile(&conn, parent.id, "An", "robot").unwrap();
+
+        // 23:00 UTC is 06:00 next day in Vietnam; the day flips at 17:00 UTC.
+        record_answer_at(&conn, profile.id, 1, true, "2026-09-07 23:00:00").unwrap();
+        record_answer_at(&conn, profile.id, 2, true, "2026-09-08 16:59:00").unwrap();
+        record_answer_at(&conn, profile.id, 3, true, "2026-09-08 17:00:00").unwrap();
+
+        let rows = daily_activity(&conn, profile.id, 7).unwrap();
+        assert_eq!(
+            rows,
+            vec![
+                DayStat {
+                    day: "2026-09-09".to_string(),
+                    lessons_done: 1,
+                    answers: 1,
+                },
+                DayStat {
+                    day: "2026-09-08".to_string(),
+                    lessons_done: 2,
+                    answers: 2,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn failed_event_insert_rolls_back_progress() {
+        let conn = open_memory().unwrap();
+        let parent = user(&conn);
+        let profile = add_profile(&conn, parent.id, "An", "robot").unwrap();
+
+        // Force the second write to fail so the first one can be checked.
+        conn.execute_batch("DROP TABLE answer_events;").unwrap();
+
+        let result = record_answer_at(&conn, profile.id, 1, true, "2026-09-08 01:00:00");
+        assert!(result.is_err());
+        assert!(progress_for_profile(&conn, profile.id).unwrap().is_empty());
+        assert_eq!(total_stars(&conn, profile.id).unwrap(), 0);
+    }
+
+    #[test]
+    fn migrate_adds_answer_events_to_a_db_that_already_has_progress() {
+        let path = std::env::temp_dir().join(format!(
+            "ho_tro_migrate_{}_{}.sqlite",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = std::fs::remove_file(&path);
+
+        {
+            // The shipped schema before answer_events existed.
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE users (
+                    id INTEGER PRIMARY KEY,
+                    google_sub TEXT NOT NULL UNIQUE,
+                    email TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE TABLE profiles (
+                    id INTEGER PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    name TEXT NOT NULL,
+                    avatar_key TEXT NOT NULL,
+                    sort_order INTEGER NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE TABLE progress (
+                    profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                    lesson_id INTEGER NOT NULL,
+                    correct_count INTEGER NOT NULL DEFAULT 0,
+                    wrong_count INTEGER NOT NULL DEFAULT 0,
+                    done INTEGER NOT NULL DEFAULT 0,
+                    last_tried_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    PRIMARY KEY (profile_id, lesson_id)
+                );
+                INSERT INTO users (id, google_sub, email) VALUES (1, 'sub-old', 'old@example.com');
+                INSERT INTO profiles (id, user_id, name, avatar_key, sort_order)
+                    VALUES (1, 1, 'An', 'robot', 0);
+                INSERT INTO progress (profile_id, lesson_id, correct_count, wrong_count, done, last_tried_at)
+                    VALUES (1, 5, 2, 1, 1, '2026-09-07 01:00:00');",
+            )
+            .unwrap();
+        }
+
+        {
+            let conn = open_file(&path).unwrap();
+            // Old rows survive the upgrade.
+            let rows = progress_for_profile(&conn, 1).unwrap();
+            assert_eq!(rows.len(), 1);
+            assert!(rows[0].done);
+            assert_eq!(total_stars(&conn, 1).unwrap(), 2);
+
+            // And the new log is usable right away.
+            record_answer_at(&conn, 1, 6, true, "2026-09-08 01:00:00").unwrap();
+            let days = daily_activity(&conn, 1, 7).unwrap();
+            assert_eq!(days.len(), 1);
+            assert_eq!(days[0].day, "2026-09-08");
+            assert_eq!(days[0].lessons_done, 1);
+        }
+
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]

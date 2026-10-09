@@ -18,7 +18,7 @@ use axum::{
 use rusqlite::Connection;
 use serde::Deserialize;
 use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 pub const DEFAULT_DB_PATH: &str = "data/app.sqlite";
 const LOCAL_PARENT_SUB: &str = "local-dev";
@@ -47,8 +47,17 @@ impl AppState {
         })
     }
 
+    /// One panic while holding the lock must not take the whole app down: the
+    /// connection is reused even if the lock was poisoned. `record_answer_at`
+    /// writes through a transaction, so a panic rolls back to a consistent DB.
+    fn db(&self) -> MutexGuard<'_, Connection> {
+        self.db
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     fn profiles(&self) -> Vec<Profile> {
-        let db = self.db.lock().expect("db lock");
+        let db = self.db();
         list_profiles(&db, self.user_id).expect("list profiles")
     }
 
@@ -57,7 +66,7 @@ impl AppState {
     }
 
     fn done_lesson_ids(&self, profile_id: i64) -> std::collections::HashSet<u32> {
-        let db = self.db.lock().expect("db lock");
+        let db = self.db();
         crate::store::progress_for_profile(&db, profile_id)
             .expect("read progress")
             .into_iter()
@@ -111,7 +120,7 @@ async fn create_profile(
         "robot".to_string()
     };
 
-    let db = state.db.lock().expect("db lock");
+    let db = state.db();
     let error = if name.is_empty() {
         Some("Nhập tên hồ sơ.".to_string())
     } else {
@@ -134,7 +143,7 @@ async fn open_profile(State(state): State<AppState>, Path(id): Path<i64>) -> Htm
     match state.profile(id) {
         Some(profile) => {
             let stars = {
-                let db = state.db.lock().expect("db lock");
+                let db = state.db();
                 crate::store::total_stars(&db, profile.id).unwrap_or(0)
             };
             Html(html::home(&profile, stars))
@@ -156,7 +165,7 @@ async fn subject_page(
     let lessons = for_subject(subject);
     let done = state.done_lesson_ids(profile.id);
     let start_id = {
-        let db = state.db.lock().expect("db lock");
+        let db = state.db();
         let ids: Vec<u32> = lessons.iter().map(|l| l.id).collect();
         next_lesson_id(&db, profile.id, &ids).expect("next lesson")
     };
@@ -169,7 +178,7 @@ async fn report_page(State(state): State<AppState>, Path(id): Path<i64>) -> Html
     let Some(profile) = state.profile(id) else {
         return Html(html::missing_profile());
     };
-    let db = state.db.lock().expect("db lock");
+    let db = state.db();
     let progress = crate::store::progress_for_profile(&db, profile.id).expect("read progress");
     let days = crate::store::daily_activity(&db, profile.id, 14).expect("daily activity");
     drop(db);
@@ -198,7 +207,7 @@ async fn report_page(State(state): State<AppState>, Path(id): Path<i64>) -> Html
 #[derive(Deserialize)]
 struct LessonQuery {
     kq: Option<String>,
-    tiep: Option<u32>,
+    tiep: Option<String>,
 }
 
 async fn lesson_page(
@@ -221,9 +230,19 @@ fn result_flash(
 ) -> Option<Flash> {
     match query.kq.as_deref() {
         Some("sai") => Some(Flash::Wrong),
-        Some("dung") => finished_correct_flash(state, profile_id, lesson_id, query.tiep),
+        Some("dung") => {
+            let tiep = parse_tiep(query.tiep.as_deref());
+            finished_correct_flash(state, profile_id, lesson_id, tiep)
+        }
         _ => None,
     }
+}
+
+/// A stale or hand-edited link must not 400 the page, so a `tiep` that does not
+/// parse is dropped and the next unfinished lesson is used instead. Whether the
+/// parsed id is a real lesson of the same subject is still checked later.
+fn parse_tiep(raw: Option<&str>) -> Option<u32> {
+    raw.and_then(|value| value.trim().parse::<u32>().ok())
 }
 
 fn finished_correct_flash(
@@ -258,13 +277,24 @@ async fn answer_lesson(
     Path((id, lesson_id)): Path<(i64, u32)>,
     Form(form): Form<Answer>,
 ) -> Response {
+    // The profile id comes from the URL, so it must be checked against this
+    // parent's own profiles before anything is written to it.
+    if state.profile(id).is_none() {
+        return Html(html::missing_profile()).into_response();
+    }
     let Some(lesson) = by_id(lesson_id) else {
         return Html(html::missing()).into_response();
     };
     let correct = form.choice == lesson.correct;
     {
-        let db = state.db.lock().expect("db lock");
-        let _ = record_answer(&db, id, lesson_id, correct);
+        let db = state.db();
+        if record_answer(&db, id, lesson_id, correct).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Html(html::write_failed()),
+            )
+                .into_response();
+        }
     }
     let flash = if correct {
         let mut done = state.done_lesson_ids(id);
@@ -328,13 +358,8 @@ fn render_lesson(
         .position(|item| item.id == lesson.id)
         .unwrap_or(0);
     let stars = {
-        let db = state.db.lock().expect("db lock");
-        crate::store::progress_for_profile(&db, profile_id)
-            .expect("read progress")
-            .iter()
-            .map(|p| p.correct_count)
-            .sum::<i64>()
-            .max(0) as usize
+        let db = state.db();
+        crate::store::total_stars(&db, profile_id).unwrap_or(0)
     };
     Html(html::lesson_page(
         &profile,
@@ -348,7 +373,7 @@ fn render_lesson(
 
 #[cfg(test)]
 mod tests {
-    use super::{app, next_unfinished_id, AppState};
+    use super::{add_profile, app, next_unfinished_id, upsert_user, AppState};
     use crate::lessons::{for_subject, Subject};
     use axum::{
         body::{to_bytes, Body},
@@ -828,7 +853,7 @@ mod tests {
     }
 
     fn progress_counts(state: &AppState, profile_id: i64, lesson_id: u32) -> (i64, i64) {
-        let db = state.db.lock().expect("db lock");
+        let db = state.db();
         crate::store::progress_for_profile(&db, profile_id)
             .expect("read progress")
             .into_iter()
@@ -1010,5 +1035,78 @@ mod tests {
         assert_eq!(next_unfinished_id(&lessons, 3, &done), Some(1));
         done.insert(1);
         assert_eq!(next_unfinished_id(&lessons, 3, &done), None);
+    }
+
+    #[tokio::test]
+    async fn broken_tiep_link_still_renders_the_lesson() {
+        let router = add_an(test_app()).await;
+        let posted = post_choice(&router, "/profiles/1/bai/1", "choice=0").await;
+        assert_eq!(posted.status(), StatusCode::SEE_OTHER);
+
+        for link in [
+            "/profiles/1/bai/1?kq=dung&tiep=abc",
+            "/profiles/1/bai/1?kq=dung&tiep=",
+            "/profiles/1/bai/1?kq=dung&tiep=-1",
+        ] {
+            let html = get_html(&router, link).await;
+            assert!(html.contains("Giỏi quá"), "{link}");
+            assert!(html.contains("/profiles/1/bai/2"), "{link}");
+        }
+    }
+
+    #[tokio::test]
+    async fn poisoned_db_lock_does_not_take_down_later_requests() {
+        let state = AppState::in_memory().unwrap();
+        let router = add_an(app(state.clone())).await;
+
+        // Poison the mutex the way a panic inside a handler would.
+        let poisoned = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = state.db();
+            panic!("poison the db lock");
+        }));
+        assert!(poisoned.is_err());
+
+        let html = get_html(&router, "/profiles").await;
+        assert!(html.contains("Ai đang học?"));
+    }
+
+    #[tokio::test]
+    async fn answer_is_refused_for_a_profile_of_another_parent() {
+        let state = AppState::in_memory().unwrap();
+        let router = add_an(app(state.clone())).await;
+        {
+            let db = state.db();
+            let other = upsert_user(&db, "sub-other", "other@example.com").unwrap();
+            let theirs = add_profile(&db, other.id, "Binh", "cat").unwrap();
+            assert_eq!(theirs.id, 2);
+        }
+
+        let response = post_choice(&router, "/profiles/2/bai/1", "choice=0").await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let html = body_of(response).await;
+        assert!(html.contains("Không có hồ sơ này"));
+        assert!(!html.contains("Giỏi quá"));
+
+        let db = state.db();
+        assert!(crate::store::progress_for_profile(&db, 2)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[tokio::test]
+    async fn answer_write_failure_shows_an_error_instead_of_a_star() {
+        let state = AppState::in_memory().unwrap();
+        let router = add_an(app(state.clone())).await;
+        {
+            let db = state.db();
+            db.execute_batch("DROP TABLE answer_events;").unwrap();
+        }
+
+        let response = post_choice(&router, "/profiles/1/bai/1", "choice=0").await;
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        let html = body_of(response).await;
+        assert!(html.contains("Không lưu được kết quả"));
+        assert!(!html.contains("Giỏi quá"));
+        assert!(!html.contains("+1 sao"));
     }
 }

@@ -196,6 +196,13 @@ input:focus, select:focus { border-color: var(--anh); outline: none; }
 }
 .scene svg { width: 100%; max-width: 30rem; height: auto; display: block; }
 .scene .big-emoji { font-size: clamp(5rem, 18vw, 7.5rem); line-height: 1; }
+/* Count feedback lives here only: bindCountTap adds this class on tap. */
+.scene .counted { opacity: .45; }
+.pic.empty {
+  display: grid; place-items: center; min-height: 7rem; padding: 1.2rem 1.4rem;
+  font-weight: 800; font-size: 1.2rem; text-align: center; color: var(--muted);
+  background: #fff; border: 2px dashed var(--line); border-radius: 1.1rem;
+}
 .count-hint { text-align: center; color: var(--muted); font-weight: 800; margin: .4rem 0 0; }
 .speak {
   border: 0; cursor: pointer; background: var(--anh-soft); color: var(--anh);
@@ -466,11 +473,8 @@ const SCRIPT: &str = r##"
 })();
 "##;
 
-fn dot(x: i64, y: i64, r: i64, fill: &str, counted: bool) -> String {
-    format!(
-        "<circle class='countable' data-n='1' cx='{x}' cy='{y}' r='{r}' fill='{fill}'{} />",
-        if counted { " opacity='.55'" } else { "" },
-    )
+fn dot(x: i64, y: i64, r: i64, fill: &str) -> String {
+    format!("<circle class='countable' data-n='1' cx='{x}' cy='{y}' r='{r}' fill='{fill}' />")
 }
 
 fn group_dots(x0: i64, y0: i64, per_row: usize, count: usize, fill: &str) -> String {
@@ -478,7 +482,7 @@ fn group_dots(x0: i64, y0: i64, per_row: usize, count: usize, fill: &str) -> Str
     for i in 0..count {
         let cx = x0 + (i % per_row) as i64 * 52;
         let cy = y0 + (i / per_row) as i64 * 52;
-        s.push_str(&dot(cx, cy, 20, fill, false));
+        s.push_str(&dot(cx, cy, 20, fill));
     }
     s
 }
@@ -489,7 +493,7 @@ fn svg_wrap(inner: &str, w: i64, h: i64) -> String {
     )
 }
 
-fn star(cx: i64, cy: i64, r: i64, counted: bool) -> String {
+fn star(cx: i64, cy: i64, r: i64) -> String {
     // 5-point star path
     let mut pts = Vec::new();
     for i in 0..10 {
@@ -503,17 +507,15 @@ fn star(cx: i64, cy: i64, r: i64, counted: bool) -> String {
         let y = cy as f64 + rad * ang.sin();
         pts.push(format!("{:.1},{:.1}", x, y));
     }
-    let op = if counted { " opacity='.5'" } else { "" };
     format!(
-        "<polygon class='countable' points='{}' fill='#ffc531' stroke='#e8a70f' stroke-width='2'{op}/>",
+        "<polygon class='countable' points='{}' fill='#ffc531' stroke='#e8a70f' stroke-width='2'/>",
         pts.join(" ")
     )
 }
 
-fn apple(cx: i64, cy: i64, r: i64, counted: bool) -> String {
-    let op = if counted { " opacity='.5'" } else { "" };
+fn apple(cx: i64, cy: i64, r: i64) -> String {
     format!(
-        "<g class='countable'{op}><circle cx='{cx}' cy='{cy}' r='{r}' fill='#ff5a4e'/>\
+        "<g class='countable'><circle cx='{cx}' cy='{cy}' r='{r}' fill='#ff5a4e'/>\
 <circle cx='{}' cy='{}' r='{}' fill='#ff8a80'/>\
 <path d='M {cx} {} q 2 -10 10 -12' stroke='#3d8b47' stroke-width='4' fill='none' stroke-linecap='round'/></g>",
         cx - r / 3,
@@ -778,7 +780,7 @@ fn scene_svg(picture: Picture) -> String {
         Picture::Stars(n) => {
             let mut g = String::new();
             for i in 0..n as i64 {
-                g.push_str(&star(30 + i * 72, 55, 26, false));
+                g.push_str(&star(30 + i * 72, 55, 26));
             }
             svg_wrap(&g, 24 + n as i64 * 72, 110)
         }
@@ -790,7 +792,7 @@ fn scene_svg(picture: Picture) -> String {
             for i in 0..n as i64 {
                 let row = i / 4;
                 let col = i % 4;
-                g.push_str(&apple(40 + col * 76, 50 + row * 76, 30, false));
+                g.push_str(&apple(40 + col * 76, 50 + row * 76, 30));
             }
             svg_wrap(
                 &g,
@@ -886,8 +888,7 @@ fn scene_svg(picture: Picture) -> String {
     }
 }
 
-fn scene_block(picture: Picture, prompt: &str) -> String {
-    let _ = prompt;
+fn scene_block(picture: Picture) -> String {
     match picture {
         Picture::None => String::new(),
         Picture::Stars(_)
@@ -1144,6 +1145,16 @@ pub fn missing_subject() -> String {
     )
 }
 
+/// Shown when an answer could not be saved, so the parent gets a signal instead
+/// of a congratulations screen that would be a lie.
+pub fn write_failed() -> String {
+    page(
+        "Không lưu được",
+        "<h1>Không lưu được kết quả.</h1><p class=sub>Bố mẹ thử lại giúp bé nhé.</p>\
+<p class=sub><a href=/profiles>Về chọn hồ sơ</a></p>",
+    )
+}
+
 pub fn lesson_page(
     profile: &Profile,
     lesson: &Lesson,
@@ -1197,7 +1208,7 @@ pub fn lesson_page(
         let on = if i == index { " on" } else { "" };
         dots.push_str(&format!("<span class='tick{on}'></span>"));
     }
-    let scene = scene_block(lesson.picture, lesson.prompt);
+    let scene = scene_block(lesson.picture);
     page(
         lesson.title,
         &format!(
@@ -1264,11 +1275,35 @@ mod tests {
 
     #[test]
     fn countable_scene_has_hint_and_script_marks() {
-        let html = scene_block(Picture::Stars(3), "Có bao nhiêu ngôi sao?");
+        let html = scene_block(Picture::Stars(3));
         assert!(html.contains("countable"));
         assert!(html.contains("count-hint"));
-        let plain = scene_block(Picture::Clock(3, 0), "Mấy giờ?");
+        let plain = scene_block(Picture::Clock(3, 0));
         assert!(!plain.contains("count-hint"));
+    }
+
+    #[test]
+    fn count_tap_class_has_a_rule_in_styles() {
+        assert!(SCRIPT.contains("classList.add(\"counted\")"));
+        assert!(rule_body(STYLES, ".scene .counted {").contains("opacity"));
+    }
+
+    #[test]
+    fn counted_shapes_carry_no_inline_fade() {
+        for picture in [Picture::Stars(3), Picture::Apples(2), Picture::Dots(3)] {
+            let html = scene_svg(picture);
+            for dead in ["opacity='.5'", "opacity='.55'"] {
+                assert!(!html.contains(dead), "{dead} should come from CSS: {html}");
+            }
+        }
+    }
+
+    #[test]
+    fn empty_picture_reads_as_a_note() {
+        let html = scene_svg(Picture::Apples(0));
+        assert!(html.contains("pic empty"));
+        let rule = rule_body(STYLES, ".pic.empty {");
+        assert!(rule.contains("border") && rule.contains("padding"));
     }
 
     #[test]
