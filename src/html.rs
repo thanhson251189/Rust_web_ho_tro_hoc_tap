@@ -233,6 +233,10 @@ input:focus, select:focus { border-color: var(--anh); outline: none; }
 /* `.speak` sets display, so the plain `hidden` attribute needs a rule to win. */
 .speak[hidden] { display: none; }
 .no-vi-voice { color: var(--muted); font-size: .98rem; font-weight: 700; margin: .2rem 0 .6rem; }
+.no-vi-voice summary { cursor: pointer; font-weight: 800; margin-top: .3rem; }
+.no-vi-voice ul { margin: .4rem 0 .2rem; padding-left: 1.2rem; font-weight: 600; }
+.no-vi-voice li { margin: .3rem 0; }
+.no-vi-voice p { margin: .3rem 0 0; font-weight: 600; }
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; margin-top: 1.1rem; }
 button.choice {
   min-height: 4.8rem; font-size: clamp(1.35rem, 4vw, 1.7rem); width: 100%;
@@ -379,6 +383,21 @@ const SCRIPT: &str = r##"
     if (btn) btn.hidden = VI_MISSING;
     if (note) note.hidden = !VI_MISSING;
   }
+  // Put the reader's own system first; an unknown userAgent keeps the order.
+  function orderVoiceHelp() {
+    var list = document.querySelector(".no-vi-voice ul");
+    if (!list) return;
+    var ua = navigator.userAgent || "";
+    var want = "windows";
+    if (/Android/i.test(ua)) want = "android";
+    else if (/iPhone|iPad|iPod/i.test(ua)) want = "ios";
+    var own = list.querySelector("li[data-os=" + want + "]");
+    var head = list.children[0];
+    if (own && head && head !== own) {
+      list.insertBefore(own, head);
+    }
+  }
+  orderVoiceHelp();
   if (window.speechSynthesis) {
     pickVoice();
     speechSynthesis.onvoiceschanged = pickVoice;
@@ -1254,7 +1273,12 @@ pub fn lesson_page(
 <span class=star-count aria-label='sao thưởng'>⭐ {stars}</span></div>\
 <div class=sheet><p class=sub>{unit} · {title}</p>\
 <button type=button class=speak data-say='{say}'>🔊 Đọc đề</button>\
-<p class=no-vi-voice hidden>Máy này chưa có giọng đọc tiếng Việt. Bố mẹ cài thêm giọng tiếng Việt trong cài đặt của máy để bé nghe được nhé.</p>\
+<div class=no-vi-voice hidden>Máy này chưa có giọng đọc tiếng Việt. Bố mẹ cài thêm giọng tiếng Việt trong cài đặt của máy để bé nghe được nhé.\
+<details><summary>Cách cài</summary><ul>\
+<li data-os=windows>Windows: Settings → Time &amp; Language → Speech → Other voices → Add voices → chọn Tiếng Việt (Vietnamese).</li>\
+<li data-os=android>Android: Cài đặt → Hệ thống → Ngôn ngữ và nhập liệu → Chuyển văn bản thành giọng nói → Google → cài dữ liệu giọng nói → Tiếng Việt.</li>\
+<li data-os=ios>iPhone/iPad: Cài đặt → Trợ năng → Nội dung đọc → Giọng đọc → Tiếng Việt.</li>\
+</ul><p>Cài xong, bố mẹ tải lại trang này, nút Đọc đề sẽ tự hiện lại.</p></details></div>\
 {scene}<p class=prompt>{prompt}</p>{banner}<div class=choices>{choices}</div></div>",
             pid = profile.id,
             slug = lesson.subject.slug(),
@@ -1541,6 +1565,44 @@ mod tests {
         assert!(tag.contains("data:image/svg+xml"), "{tag}");
         assert!(tag.contains("%23ffc531"), "{tag}");
         assert!(!tag.contains('#'), "dấu # thô sẽ cắt data URI: {tag}");
+    }
+
+    #[test]
+    fn voice_help_tells_each_system_where_to_install() {
+        let profile = Profile {
+            id: 1,
+            user_id: 1,
+            name: "An".into(),
+            avatar_key: "robot".into(),
+            sort_order: 0,
+        };
+        let lesson = Lesson {
+            id: 1,
+            subject: Subject::Toan,
+            unit: "unit",
+            title: "title",
+            prompt: "prompt",
+            picture: Picture::None,
+            choices: ["1", "2", "3", "4"],
+            correct: 0,
+        };
+        let html = lesson_page(&profile, &lesson, 0, 1, 0, None);
+        assert!(
+            html.contains("<div class=no-vi-voice hidden>"),
+            "note ẩn mặc định"
+        );
+        assert!(html.contains("<details"), "hướng dẫn phải gấp được");
+        assert!(!html.contains("<details open"), "mặc định phải đóng");
+        assert!(html.contains("<summary>Cách cài</summary>"));
+        for platform in ["Windows", "Android", "iPhone"] {
+            assert!(html.contains(platform), "thiếu hướng dẫn cho {platform}");
+        }
+        assert!(html.contains("Time &amp; Language"));
+        assert!(html.contains("Chuyển văn bản thành giọng nói"));
+        assert!(html.contains("Trợ năng"));
+        // Hệ máy đang dùng lên đầu, nhưng userAgent lạ thì giữ nguyên thứ tự.
+        assert!(SCRIPT.contains("navigator.userAgent"));
+        assert!(SCRIPT.contains("list.insertBefore(own, head)"));
     }
 
     fn rule_body<'a>(css: &'a str, selector: &str) -> &'a str {
