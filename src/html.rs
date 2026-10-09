@@ -9,6 +9,7 @@ pub fn escape(input: &str) -> String {
             '<' => out.push_str("&lt;"),
             '>' => out.push_str("&gt;"),
             '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
             _ => out.push(c),
         }
     }
@@ -283,6 +284,7 @@ input:focus-visible, select:focus-visible, a.item:focus-visible {
 }
 .letter-card {
   display: flex; align-items: center; justify-content: center; gap: 2.2rem;
+  flex-wrap: wrap;
   padding: 1rem 1.4rem; background: #fff; border-radius: 1.6rem;
   border: 3px dashed var(--line); max-width: 24rem;
 }
@@ -304,10 +306,10 @@ input:focus-visible, select:focus-visible, a.item:focus-visible {
 }
 .letter-word.en { font-family: "Baloo 2", sans-serif; color: var(--anh); background: var(--anh-soft); }
 .word-card {
-  display: flex; align-items: center; gap: 2rem; padding: 1rem 1.5rem;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 2rem;
+  padding: 1rem 1.5rem;
   background: #fff; border-radius: 1.6rem; border: 3px dashed #c9d6ff;
 }
-.letter.up { color: var(--anh); background: var(--anh-soft); }
 .letter-card .letter.up { color: var(--toan); background: var(--toan-soft); }
 .word-side { display: flex; flex-direction: column; align-items: center; gap: .3rem; }
 .word-emoji { font-size: clamp(3.4rem, 13vw, 5rem); line-height: 1.2; cursor: pointer; }
@@ -419,31 +421,18 @@ const SCRIPT: &str = r##"
   }
   window.__bindCountTap = bindCountTap;
 
-  var speakBtn = document.querySelector("[data-say]");
-  if (speakBtn) {
-    speakBtn.addEventListener("click", function () {
-      say(speakBtn.getAttribute("data-say"));
-    });
-  }
-
   bindSayTaps(document);
 
-  // Auto-read the question once per page load so pre-readers can follow along.
-  // Browsers block speech before the first user gesture; in that case the child
-  // taps "Đọc đề" and every later page will auto-read.
+  // Browsers block speech until the first gesture on this page.
+  // Wait for that tap, then read the question.
+  var speakBtn = document.querySelector(".speak");
   var autoText = speakBtn ? speakBtn.getAttribute("data-say") : null;
   if (autoText) {
-    var unlocked = false;
-    try { unlocked = speechSynthesis.speaking || speechSynthesis.pending; } catch (e) {}
-    if (unlocked) {
-      setTimeout(function () { say(autoText); }, 600);
-    } else {
-      var unlock = function () {
-        document.removeEventListener("pointerdown", unlock);
-        say(autoText);
-      };
-      document.addEventListener("pointerdown", unlock, { once: true });
-    }
+    var unlock = function () {
+      document.removeEventListener("pointerdown", unlock);
+      say(autoText);
+    };
+    document.addEventListener("pointerdown", unlock, { once: true });
   }
 
   function burstConfetti() {
@@ -461,9 +450,11 @@ const SCRIPT: &str = r##"
   }
   window.__confetti = burstConfetti;
 
-  if (document.querySelector(".confetti-anchor")) {
+  var cheer = document.querySelector(".banner.ok");
+  if (cheer) {
     burstConfetti();
-    say("Giỏi quá!");
+    var line = cheer.getAttribute("data-cheer");
+    if (line) say(line);
   }
 
   bindCountTap(document);
@@ -477,7 +468,7 @@ const SCRIPT: &str = r##"
 
 fn dot(x: i64, y: i64, r: i64, fill: &str, counted: bool) -> String {
     format!(
-        "<circle class='countable' data-n='1' cx='{x}' cy='{y}' r='{r}' fill='{fill}'{}",
+        "<circle class='countable' data-n='1' cx='{x}' cy='{y}' r='{r}' fill='{fill}'{} />",
         if counted { " opacity='.55'" } else { "" },
     )
 }
@@ -1190,7 +1181,7 @@ pub fn lesson_page(
                 ),
             };
             format!(
-                "<div class='banner ok confetti-anchor'>⭐ +1 sao! Giỏi quá, đúng rồi.</div><div class=done-actions>{next}\
+                "<div class='banner ok confetti-anchor' data-cheer='Giỏi quá!'>⭐ +1 sao! Giỏi quá, đúng rồi.</div><div class=done-actions>{next}\
 <a class='btn ghost' href=/profiles/{pid}>Về chọn môn</a></div>",
                 pid = profile.id,
                 next = next
@@ -1316,5 +1307,118 @@ mod tests {
         );
         assert!(html.contains("confetti-anchor"));
         assert!(html.contains("⭐ 7"));
+    }
+
+    #[test]
+    fn dot_scenes_close_every_circle_and_keep_operator_text() {
+        for picture in [
+            Picture::Dots(10),
+            Picture::Compare(5, 3),
+            Picture::Join(5, 2),
+        ] {
+            let html = scene_svg(picture);
+            assert_eq!(
+                html.matches("<circle").count(),
+                html.matches("/>").count(),
+                "{html}"
+            );
+            assert!(
+                circles_close_before_next_tag(&html),
+                "unclosed circle: {html}"
+            );
+        }
+        assert_text_node(&scene_svg(Picture::Join(5, 2)), "+");
+        assert_text_node(&scene_svg(Picture::Compare(5, 3)), "?");
+    }
+
+    fn circles_close_before_next_tag(html: &str) -> bool {
+        let mut rest = html;
+        while let Some(start) = rest.find("<circle") {
+            let after = &rest[start + "<circle".len()..];
+            let Some(next_lt) = after.find('<') else {
+                return false;
+            };
+            if !after[..next_lt].contains('>') {
+                return false;
+            }
+            rest = &after[next_lt..];
+        }
+        true
+    }
+
+    fn assert_text_node(html: &str, token: &str) {
+        let start = html.find("<text").expect("svg text");
+        let after = &html[start..];
+        let open_end = after.find('>').expect("text tag opens");
+        let close = after.find("</text>").expect("text tag closes");
+        assert!(open_end < close, "{html}");
+        let inner = &after[open_end + 1..close];
+        assert_eq!(inner, token, "{html}");
+    }
+
+    #[test]
+    fn escape_encodes_apostrophe() {
+        assert_eq!(escape("a'b"), "a&#39;b");
+    }
+
+    #[test]
+    fn speak_button_keeps_single_quoted_attribute() {
+        let profile = Profile {
+            id: 1,
+            user_id: 1,
+            name: "An".into(),
+            avatar_key: "robot".into(),
+            sort_order: 0,
+        };
+        let lesson = Lesson {
+            id: 1,
+            subject: Subject::Toan,
+            unit: "unit",
+            title: "title",
+            prompt: "a'b",
+            picture: Picture::None,
+            choices: ["1", "2", "3", "4"],
+            correct: 0,
+        };
+        let html = lesson_page(&profile, &lesson, 0, 1, 0, None);
+        assert!(html.contains("data-say='a&#39;b'"));
+        assert!(!html.contains("data-say='a'b'"));
+    }
+
+    #[test]
+    fn speak_button_is_bound_only_by_bind_say_taps() {
+        assert!(!SCRIPT.contains("document.querySelector(\"[data-say]\")"));
+        assert!(SCRIPT.contains("document.querySelector(\".speak\")"));
+        assert!(SCRIPT.contains("speakBtn.getAttribute(\"data-say\")"));
+        assert!(SCRIPT.contains("pointerdown"));
+    }
+
+    #[test]
+    fn auto_read_does_not_treat_speaking_as_unlock() {
+        assert!(!SCRIPT.contains("speechSynthesis.speaking"));
+        assert!(!SCRIPT.contains("speechSynthesis.pending"));
+    }
+
+    #[test]
+    fn letter_up_rule_is_unique_outside_letter_card() {
+        let bare = STYLES
+            .match_indices(".letter.up {")
+            .filter(|(index, _)| !STYLES[..*index].ends_with(".letter-card "))
+            .count();
+        assert_eq!(bare, 1);
+        assert_eq!(STYLES.matches(".letter-card .letter.up {").count(), 1);
+    }
+
+    #[test]
+    fn narrow_cards_wrap() {
+        assert!(rule_body(STYLES, ".letter-card {").contains("flex-wrap"));
+        assert!(rule_body(STYLES, ".word-card {").contains("flex-wrap"));
+    }
+
+    fn rule_body<'a>(css: &'a str, selector: &str) -> &'a str {
+        let start = css.find(selector).expect(selector);
+        let after = &css[start + selector.len()..];
+        let end = after.find('}').expect(selector);
+        &after[..end]
     }
 }
