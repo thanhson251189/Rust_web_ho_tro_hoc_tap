@@ -25,11 +25,18 @@ pub fn avatar_emoji(key: &str) -> &'static str {
     }
 }
 
+/// Inline SVG star, so the browser never asks for a `/favicon.ico` the app does
+/// not serve. Every `#` of a colour must be `%23`, or the URI is cut short.
+const FAVICON: &str = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' \
+viewBox='0 0 32 32'%3E%3Cpolygon points='16,2 20,12 31,12 22,19 25,30 16,24 7,30 10,19 1,12 12,12' \
+fill='%23ffc531' stroke='%23e8a70f' stroke-width='2'/%3E%3C/svg%3E";
+
 pub fn page(title: &str, body: &str) -> String {
     format!(
         "<!DOCTYPE html><html lang=vi><head><meta charset=utf-8>\
 <meta name=viewport content='width=device-width, initial-scale=1, viewport-fit=cover'>\
 <title>{title}</title>\
+<link rel=icon href=\"{FAVICON}\">\
 <link rel=preconnect href='https://fonts.googleapis.com'>\
 <link rel=preconnect href='https://fonts.gstatic.com' crossorigin>\
 <link href='https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,600&display=swap' rel=stylesheet>\
@@ -223,6 +230,9 @@ input:focus, select:focus { border-color: var(--anh); outline: none; }
   display: inline-flex; align-items: center; gap: .4rem; margin: .2rem 0 .4rem;
 }
 .speak:hover { background: var(--anh); color: #fff; }
+/* `.speak` sets display, so the plain `hidden` attribute needs a rule to win. */
+.speak[hidden] { display: none; }
+.no-vi-voice { color: var(--muted); font-size: .98rem; font-weight: 700; margin: .2rem 0 .6rem; }
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; margin-top: 1.1rem; }
 button.choice {
   min-height: 4.8rem; font-size: clamp(1.35rem, 4vw, 1.7rem); width: 100%;
@@ -348,12 +358,26 @@ const SCRIPT: &str = r##"
 (function () {
   "use strict";
   var VOICE = null;
+  // True only when the browser listed voices and none of them speaks Vietnamese.
+  var VI_MISSING = false;
   function pickVoice() {
     var vs = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+    var vi = null;
     for (var i = 0; i < vs.length; i++) {
-      if (/^vi(-|_)/i.test(vs[i].lang)) { VOICE = vs[i]; return; }
+      if (/^vi(-|_)/i.test(vs[i].lang)) { vi = vs[i]; break; }
     }
-    VOICE = null;
+    VOICE = vi;
+    // An empty list is not proof: Chrome fills it later and fires voiceschanged.
+    VI_MISSING = vs.length > 0 && !vi;
+    showVoiceNotice();
+  }
+  // Reading Vietnamese with an English voice is worse than not reading at all,
+  // so the button steps aside for a line the parent can act on.
+  function showVoiceNotice() {
+    var btn = document.querySelector(".speak");
+    var note = document.querySelector(".no-vi-voice");
+    if (btn) btn.hidden = VI_MISSING;
+    if (note) note.hidden = !VI_MISSING;
   }
   if (window.speechSynthesis) {
     pickVoice();
@@ -1230,6 +1254,7 @@ pub fn lesson_page(
 <span class=star-count aria-label='sao thưởng'>⭐ {stars}</span></div>\
 <div class=sheet><p class=sub>{unit} · {title}</p>\
 <button type=button class=speak data-say='{say}'>🔊 Đọc đề</button>\
+<p class=no-vi-voice hidden>Máy này chưa có giọng đọc tiếng Việt. Bố mẹ cài thêm giọng tiếng Việt trong cài đặt của máy để bé nghe được nhé.</p>\
 {scene}<p class=prompt>{prompt}</p>{banner}<div class=choices>{choices}</div></div>",
             pid = profile.id,
             slug = lesson.subject.slug(),
@@ -1469,6 +1494,53 @@ mod tests {
         assert!(badge.contains("white-space"), ".star-count: {badge}");
         assert!(badge.contains("nowrap"), ".star-count: {badge}");
         assert!(rule_body(STYLES, ".hello {").contains("flex-wrap"));
+    }
+
+    #[test]
+    fn script_falls_back_when_the_machine_has_no_vietnamese_voice() {
+        assert!(
+            SCRIPT.contains("vs.length > 0 && !vi"),
+            "danh sách giọng rỗng lúc mới tải không được coi là thiếu giọng vi"
+        );
+        assert!(SCRIPT.contains("btn.hidden = VI_MISSING"));
+        assert!(SCRIPT.contains("note.hidden = !VI_MISSING"));
+        assert!(SCRIPT.matches("onvoiceschanged").count() >= 2);
+
+        let profile = Profile {
+            id: 1,
+            user_id: 1,
+            name: "An".into(),
+            avatar_key: "robot".into(),
+            sort_order: 0,
+        };
+        let lesson = Lesson {
+            id: 1,
+            subject: Subject::Toan,
+            unit: "unit",
+            title: "title",
+            prompt: "prompt",
+            picture: Picture::None,
+            choices: ["1", "2", "3", "4"],
+            correct: 0,
+        };
+        // The button stays in the server HTML; only the browser may hide it.
+        let html = lesson_page(&profile, &lesson, 0, 1, 0, None);
+        assert!(html.contains("class=speak"));
+        assert!(html.contains("no-vi-voice"));
+        assert!(html.contains("chưa có giọng đọc tiếng Việt"));
+    }
+
+    #[test]
+    fn page_declares_an_inline_favicon() {
+        let html = page("T", "x");
+        let icon = html
+            .split("rel=icon")
+            .nth(1)
+            .expect("page phải có rel=icon");
+        let tag = &icon[..icon.find('>').expect("thẻ link đóng")];
+        assert!(tag.contains("data:image/svg+xml"), "{tag}");
+        assert!(tag.contains("%23ffc531"), "{tag}");
+        assert!(!tag.contains('#'), "dấu # thô sẽ cắt data URI: {tag}");
     }
 
     fn rule_body<'a>(css: &'a str, selector: &str) -> &'a str {

@@ -21,8 +21,20 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 pub const DEFAULT_DB_PATH: &str = "data/app.sqlite";
+/// Localhost only: the app has no login, so reaching the home network has to be
+/// a deliberate act, never the default.
+pub const DEFAULT_ADDR: &str = "127.0.0.1:3000";
 const LOCAL_PARENT_SUB: &str = "local-dev";
 const AVATARS: &[&str] = &["robot", "cat", "bear", "fox"];
+
+/// Bind address for the server: `raw` when it holds something usable, otherwise
+/// [`DEFAULT_ADDR`]. Set `HOTRO_ADDR=0.0.0.0:3000` to let the family reach it.
+pub fn listen_addr(raw: Option<&str>) -> String {
+    match raw.map(str::trim) {
+        Some(value) if !value.is_empty() => value.to_string(),
+        _ => DEFAULT_ADDR.to_string(),
+    }
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -373,7 +385,7 @@ fn render_lesson(
 
 #[cfg(test)]
 mod tests {
-    use super::{add_profile, app, next_unfinished_id, upsert_user, AppState};
+    use super::{add_profile, app, listen_addr, next_unfinished_id, upsert_user, AppState};
     use crate::lessons::{for_subject, Subject};
     use axum::{
         body::{to_bytes, Body},
@@ -1025,6 +1037,15 @@ mod tests {
 
         let kept = get_html(&router, "/profiles/1/bai/1?kq=dung&tiep=3").await;
         assert!(kept.contains("/profiles/1/bai/3"));
+    }
+
+    #[test]
+    fn listen_addr_keeps_localhost_unless_asked_otherwise() {
+        assert_eq!(listen_addr(None), "127.0.0.1:3000");
+        assert_eq!(listen_addr(Some("")), "127.0.0.1:3000");
+        assert_eq!(listen_addr(Some("   ")), "127.0.0.1:3000");
+        assert_eq!(listen_addr(Some(" 0.0.0.0:8080 ")), "0.0.0.0:8080");
+        assert_eq!(listen_addr(Some("0.0.0.0:3000")), "0.0.0.0:3000");
     }
 
     #[test]
