@@ -225,14 +225,53 @@ pub fn next_lesson_id(
         .find(|id| !done.contains(id)))
 }
 
-/// Star total: one star per correct answer across all lessons.
+/// Star total: one star per lesson the child has answered correctly at least
+/// once. Re-answering a solved lesson must not mint more stars.
 pub fn total_stars(conn: &Connection, profile_id: i64) -> Result<usize, StoreError> {
     let n: i64 = conn.query_row(
-        "SELECT COALESCE(SUM(correct_count), 0) FROM progress WHERE profile_id = ?1",
+        "SELECT COUNT(*) FROM progress WHERE profile_id = ?1 AND correct_count > 0",
         params![profile_id],
         |row| row.get(0),
     )?;
     Ok(n.max(0) as usize)
+}
+
+/// How many correct answers this profile has given on one lesson, or zero when
+/// the lesson was never answered. The first correct answer is the one that
+/// earns the lesson's star.
+pub fn correct_answers_for(
+    conn: &Connection,
+    profile_id: i64,
+    lesson_id: u32,
+) -> Result<i64, StoreError> {
+    let n: i64 = conn.query_row(
+        "SELECT COALESCE((SELECT correct_count FROM progress
+                          WHERE profile_id = ?1 AND lesson_id = ?2), 0)",
+        params![profile_id, lesson_id],
+        |row| row.get(0),
+    )?;
+    Ok(n)
+}
+
+/// Lessons answered correctly on at least two different Vietnam days. One
+/// lucky tap is not mastery; a correct answer that survived a night is.
+pub fn mastered_lesson_ids(
+    conn: &Connection,
+    profile_id: i64,
+) -> Result<std::collections::HashSet<u32>, StoreError> {
+    let sql = format!(
+        "SELECT lesson_id FROM answer_events
+         WHERE profile_id = ?1 AND correct = 1
+         GROUP BY lesson_id
+         HAVING COUNT(DISTINCT date(at, '{VN_OFFSET}')) >= 2"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params![profile_id], |row| row.get(0))?;
+    let mut out = std::collections::HashSet::new();
+    for row in rows {
+        out.insert(row?);
+    }
+    Ok(out)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -659,11 +698,12 @@ mod tests {
 
         {
             let conn = open_file(&path).unwrap();
-            // Old rows survive the upgrade.
+            // Old rows survive the upgrade, and the per-lesson star rule folds
+            // an inflated correct_count back to one star for that lesson.
             let rows = progress_for_profile(&conn, 1).unwrap();
             assert_eq!(rows.len(), 1);
             assert!(rows[0].done);
-            assert_eq!(total_stars(&conn, 1).unwrap(), 2);
+            assert_eq!(total_stars(&conn, 1).unwrap(), 1);
 
             // And the new log is usable right away.
             record_answer_at(&conn, 1, 6, true, "2026-09-08 01:00:00").unwrap();
@@ -705,6 +745,42 @@ mod tests {
         }
 
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn one_star_per_lesson_even_after_repeats() {
+        let conn = open_memory().unwrap();
+        let parent = user(&conn);
+        let profile = add_profile(&conn, parent.id, "An", "robot").unwrap();
+
+        record_answer(&conn, profile.id, 1, true).unwrap();
+        record_answer(&conn, profile.id, 1, true).unwrap();
+        record_answer(&conn, profile.id, 1, false).unwrap();
+        record_answer(&conn, profile.id, 2, true).unwrap();
+
+        assert_eq!(total_stars(&conn, profile.id).unwrap(), 2);
+        assert_eq!(correct_answers_for(&conn, profile.id, 1).unwrap(), 2);
+        assert_eq!(correct_answers_for(&conn, profile.id, 99).unwrap(), 0);
+    }
+
+    #[test]
+    fn mastery_needs_a_correct_answer_on_a_second_day() {
+        let conn = open_memory().unwrap();
+        let parent = user(&conn);
+        let profile = add_profile(&conn, parent.id, "An", "robot").unwrap();
+
+        // Two correct answers on the same Vietnam day are still day one.
+        record_answer_at(&conn, profile.id, 1, true, "2026-09-07 10:00:00").unwrap();
+        record_answer_at(&conn, profile.id, 1, true, "2026-09-07 15:00:00").unwrap();
+        assert!(mastered_lesson_ids(&conn, profile.id).unwrap().is_empty());
+
+        // 2026-09-08 02:00 UTC is 09:00 on the 8th in Vietnam.
+        record_answer_at(&conn, profile.id, 1, true, "2026-09-08 02:00:00").unwrap();
+        record_answer_at(&conn, profile.id, 2, true, "2026-09-08 03:00:00").unwrap();
+
+        let mastered = mastered_lesson_ids(&conn, profile.id).unwrap();
+        assert!(mastered.contains(&1), "lesson 1 spans two days");
+        assert!(!mastered.contains(&2), "lesson 2 was answered once");
     }
 
     #[test]

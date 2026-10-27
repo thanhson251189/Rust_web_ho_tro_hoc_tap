@@ -1054,6 +1054,7 @@ pub fn subject_page(
     subject: Subject,
     lessons: &[&Lesson],
     done: &std::collections::HashSet<u32>,
+    mastered: &std::collections::HashSet<u32>,
     start_id: Option<u32>,
 ) -> String {
     let mut list = String::new();
@@ -1063,18 +1064,17 @@ pub fn subject_page(
             list.push_str(&format!("<h2 class=unit>{}</h2>", escape(lesson.unit)));
             last_unit = lesson.unit;
         }
-        let mark = if done.contains(&lesson.id) {
+        let learned = done.contains(&lesson.id) || mastered.contains(&lesson.id);
+        let mark = if mastered.contains(&lesson.id) {
+            "<span class='n done-mark' aria-label='đã thành thạo'>★</span>".to_string()
+        } else if done.contains(&lesson.id) {
             "<span class='n done-mark' aria-label='đã học xong'>✓</span>".to_string()
         } else {
             format!("<span class=n>Bài {}</span>", index + 1)
         };
         list.push_str(&format!(
             "<a class='item{}' href=/profiles/{pid}/bai/{lid}><span>{title}</span>{mark}</a>",
-            if done.contains(&lesson.id) {
-                " done"
-            } else {
-                ""
-            },
+            if learned { " done" } else { "" },
             pid = profile.id,
             lid = lesson.id,
             title = escape(lesson.title),
@@ -1082,21 +1082,26 @@ pub fn subject_page(
         ));
     }
     let done_count = lessons.iter().filter(|l| done.contains(&l.id)).count();
+    let mastered_count = lessons.iter().filter(|l| mastered.contains(&l.id)).count();
     let start = match start_id {
         Some(lesson_id) => format!(
             "<p class=cta-row><a class=btn href=/profiles/{}/bai/{}>Học tiếp ✨</a></p>\
-<p class=progress-line>Đã học: <b>{done_count}</b>/{count} bài</p>",
+<p class=progress-line>Đã học: <b>{done_count}</b>/{count} bài</p>\
+<p class=progress-line>★ Thành thạo: <b>{mastered_count}</b>/{count} bài (đúng ở 2 ngày khác nhau)</p>",
             profile.id,
             lesson_id,
             count = lessons.len(),
+            mastered_count = mastered_count,
         ),
         None => format!(
             "<p class=cta-row><a class='btn ghost' href=/profiles/{}/mon/{}>Hoàn thành! Ôn lại từ bài 1</a></p>\
-<p class=progress-line>🎉 Đã học đủ <b>{done_count}</b>/{count} bài</p>",
+<p class=progress-line>🎉 Đã học đủ <b>{done_count}</b>/{count} bài</p>\
+<p class=progress-line>★ Thành thạo: <b>{mastered_count}</b>/{count} bài (đúng ở 2 ngày khác nhau)</p>",
             profile.id,
             subject.slug(),
             done_count = done_count,
             count = lessons.len(),
+            mastered_count = mastered_count,
         ),
     };
     page(
@@ -1117,9 +1122,11 @@ pub fn subject_page(
 pub fn report_page(
     profile: &Profile,
     per_subject: &[(Subject, usize, usize)],
+    mastered: usize,
     days: &[DayStat],
     hard_lessons: &[&Lesson],
 ) -> String {
+    let total_lessons: usize = per_subject.iter().map(|(_, _, total)| total).sum();
     let mut rows = String::new();
     for (subject, done, total) in per_subject {
         let pct = if *total == 0 { 0 } else { done * 100 / total };
@@ -1172,6 +1179,7 @@ pub fn report_page(
             "<div class=nav><a href=/profiles/{pid}>← Hồ sơ của {name}</a></div>\
 <h1>Báo cáo học tập</h1><p class=sub>Tiến độ và hoạt động gần đây của bé {name}.</p>\
 <h2 class=unit>Tiến độ từng môn</h2><div class=report-rows>{rows}</div>\
+<p class=progress-line>★ Thành thạo: <b>{mastered}</b>/{total_lessons} bài (đúng ở 2 ngày khác nhau).</p>\
 <h2 class=unit>Hoạt động gần đây</h2>{day_block}\
 <h2 class=unit>Bài bé hay sai</h2>{hard_block}",
             pid = profile.id,
@@ -1245,7 +1253,7 @@ pub fn lesson_page(
         }
     }
     let banner = match flash {
-        Some(Flash::Correct { next_id }) => {
+        Some(Flash::Correct { next_id, star }) => {
             let next = match next_id {
                 Some(id) => format!(
                     "<a class=btn href=/profiles/{}/bai/{id}>Bài tiếp theo</a>",
@@ -1257,11 +1265,19 @@ pub fn lesson_page(
                     lesson.subject.slug()
                 ),
             };
+            // The lesson's star is earned once; a later correct answer is still
+            // a win, but it must not promise a second star.
+            let cheer = if star {
+                "⭐ +1 sao! Giỏi quá, đúng rồi."
+            } else {
+                "Giỏi quá, đúng rồi!"
+            };
             format!(
-                "<div class='banner ok confetti-anchor' data-cheer='Giỏi quá!'>⭐ +1 sao! Giỏi quá, đúng rồi.</div><div class=done-actions>{next}\
+                "<div class='banner ok confetti-anchor' data-cheer='Giỏi quá!'>{cheer}</div><div class=done-actions>{next}\
 <a class='btn ghost' href=/profiles/{pid}>Về chọn môn</a></div>",
                 pid = profile.id,
-                next = next
+                next = next,
+                cheer = cheer
             )
         }
         Some(Flash::Wrong) => {
@@ -1307,7 +1323,7 @@ pub fn lesson_page(
 
 #[derive(Debug, Clone, Copy)]
 pub enum Flash {
-    Correct { next_id: Option<u32> },
+    Correct { next_id: Option<u32>, star: bool },
     Wrong,
 }
 
@@ -1410,7 +1426,10 @@ mod tests {
             0,
             54,
             7,
-            Some(Flash::Correct { next_id: Some(2) }),
+            Some(Flash::Correct {
+                next_id: Some(2),
+                star: true,
+            }),
         );
         assert!(html.contains("confetti-anchor"));
         assert!(html.contains("⭐ 7"));
@@ -1692,21 +1711,24 @@ mod tests {
             sort_order: 0,
         };
         let done = std::collections::HashSet::new();
+        let mastered = std::collections::HashSet::new();
         let mut pages = vec![
             picker(std::slice::from_ref(&profile), None, true),
             picker(&[], Some("Nhập tên hồ sơ."), true),
             home(&profile, 3),
-            subject_page(&profile, Subject::Toan, &[], &done, None),
+            subject_page(&profile, Subject::Toan, &[], &done, &mastered, None),
             subject_page(
                 &profile,
                 Subject::Toan,
                 &for_subject(Subject::Toan),
                 &done,
+                &mastered,
                 Some(1),
             ),
             report_page(
                 &profile,
                 &[(Subject::Toan, 1, 62)],
+                0,
                 &[DayStat {
                     day: "2026-09-08".into(),
                     lessons_done: 1,
@@ -1756,7 +1778,10 @@ mod tests {
                 0,
                 4,
                 2,
-                Some(Flash::Correct { next_id: Some(2) }),
+                Some(Flash::Correct {
+                    next_id: Some(2),
+                    star: true,
+                }),
             ));
         }
 
