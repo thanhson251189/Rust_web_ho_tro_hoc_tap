@@ -140,15 +140,23 @@ async fn create_profile(State(state): State<AppState>, Form(form): Form<NewProfi
     };
 
     let db = state.db();
-    let error = if name.is_empty() {
-        Some("Nhập tên hồ sơ.".to_string())
+    let saved = if name.is_empty() {
+        Err("Nhập tên hồ sơ.".to_string())
     } else {
-        match add_profile(&db, state.user_id, &name, &avatar_key) {
-            Ok(_) => None,
-            Err(StoreError::ProfileLimit) => Some("Tối đa 2 hồ sơ.".to_string()),
-            Err(err) => Some(format!("Không lưu được hồ sơ: {err:?}")),
-        }
+        add_profile(&db, state.user_id, &name, &avatar_key)
+            .map(|_| ())
+            .map_err(|err| match err {
+                StoreError::ProfileLimit => "Tối đa 2 hồ sơ.".to_string(),
+                err => format!("Không lưu được hồ sơ: {err:?}"),
+            })
     };
+    // A saved profile is shown by the picker on a fresh GET, so a refresh of
+    // the POST result cannot submit the form a second time.
+    if saved.is_ok() {
+        drop(db);
+        return Redirect::to("/profiles").into_response();
+    }
+    let error = saved.err();
     let profiles = match list_profiles(&db, state.user_id) {
         Ok(profiles) => profiles,
         Err(_) => return read_error(),
@@ -528,8 +536,8 @@ mod tests {
             )
             .await
             .unwrap();
-        let html = body_of(first).await;
-        assert!(html.contains("An"));
+        assert_eq!(first.status(), StatusCode::SEE_OTHER);
+        assert_eq!(first.headers()["location"], "/profiles");
 
         let second = app
             .clone()
@@ -543,7 +551,19 @@ mod tests {
             )
             .await
             .unwrap();
-        let html = body_of(second).await;
+        assert_eq!(second.status(), StatusCode::SEE_OTHER);
+
+        let picker = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/profiles")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let html = body_of(picker).await;
         assert!(html.contains("An"));
         assert!(html.contains("Binh"));
         assert!(!html.contains("Thêm hồ sơ"));
@@ -559,12 +579,45 @@ mod tests {
             )
             .await
             .unwrap();
+        assert_eq!(third.status(), StatusCode::OK);
         let html = body_of(third).await;
         assert!(html.contains("Tối đa 2 hồ sơ."));
         // Đếm theo thẻ hồ sơ, không dò chuỗi con trong cả trang: chữ "Chi" có
         // thể xuất hiện trong CSS/JS hợp lệ (firstElementChild) và làm đỏ oan.
         assert_eq!(html.matches("<span class=name>").count(), 2);
         assert!(!html.contains("<span class=name>Chi</span>"));
+    }
+
+    #[tokio::test]
+    async fn created_profile_is_shown_by_a_redirect_not_by_a_reposted_form() {
+        let app = test_app();
+        let created = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/profiles")
+                    .header("content-type", form_type())
+                    .body(Body::from("name=An&avatar_key=robot"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(created.status(), StatusCode::SEE_OTHER);
+        assert_eq!(created.headers()["location"], "/profiles");
+
+        // What a browser refresh does after the redirect: a GET, never a repost.
+        let picker = app
+            .oneshot(
+                Request::builder()
+                    .uri("/profiles")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let html = body_of(picker).await;
+        assert_eq!(html.matches("<span class=name>").count(), 1);
     }
 
     #[tokio::test]
