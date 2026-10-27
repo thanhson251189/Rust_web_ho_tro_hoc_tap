@@ -6,10 +6,10 @@ license = "MIT"
 publish = false
 
 [dependencies]
-axum = "0.7.9"
+axum = "0.8"
 rusqlite = { version = "0.31", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1.36", features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
-tower = { version = "0.4.13", features = ["util"] }
+tower = { version = "0.5", features = ["util"] }
