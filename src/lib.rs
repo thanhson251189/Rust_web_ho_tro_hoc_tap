@@ -106,7 +106,14 @@ pub fn app(state: AppState) -> Router {
             "/profiles/:id/bai/:lesson_id",
             get(lesson_page).post(answer_lesson),
         )
+        .fallback(unknown_route)
         .with_state(state)
+}
+
+/// A URL the app does not serve still answers a page with a way home, instead
+/// of the router's bare 404.
+async fn unknown_route() -> Response {
+    not_found(html::missing())
 }
 
 async fn home() -> Redirect {
@@ -691,6 +698,23 @@ mod tests {
         let html = body_of(response).await;
         assert!(html.contains("Không có hồ sơ này"));
         assert!(!html.contains("Không có trang này"));
+    }
+
+    #[tokio::test]
+    async fn unknown_url_answers_the_friendly_missing_page() {
+        let response = test_app()
+            .oneshot(
+                Request::builder()
+                    .uri("/khong-co-trang-nay")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        let html = body_of(response).await;
+        assert!(html.contains("Không có trang này."));
+        assert!(html.contains("href=/profiles"));
     }
 
     #[tokio::test]
