@@ -68,23 +68,30 @@ impl AppState {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
-    fn profiles(&self) -> Vec<Profile> {
+    /// Read errors are returned, not panicked on: a broken database is a page
+    /// the parent can act on instead of a dropped connection.
+    fn profiles(&self) -> Result<Vec<Profile>, StoreError> {
         let db = self.db();
-        list_profiles(&db, self.user_id).expect("list profiles")
+        list_profiles(&db, self.user_id)
     }
 
-    fn profile(&self, id: i64) -> Option<Profile> {
-        self.profiles().into_iter().find(|profile| profile.id == id)
+    fn profile(&self, id: i64) -> Result<Option<Profile>, StoreError> {
+        Ok(self
+            .profiles()?
+            .into_iter()
+            .find(|profile| profile.id == id))
     }
 
-    fn done_lesson_ids(&self, profile_id: i64) -> std::collections::HashSet<u32> {
+    fn done_lesson_ids(
+        &self,
+        profile_id: i64,
+    ) -> Result<std::collections::HashSet<u32>, StoreError> {
         let db = self.db();
-        crate::store::progress_for_profile(&db, profile_id)
-            .expect("read progress")
+        Ok(crate::store::progress_for_profile(&db, profile_id)?
             .into_iter()
             .filter(|p| p.done)
             .map(|p| p.lesson_id)
-            .collect()
+            .collect())
     }
 }
 
@@ -106,13 +113,16 @@ async fn home() -> Redirect {
     Redirect::to("/profiles")
 }
 
-async fn profiles_page(State(state): State<AppState>) -> Html<String> {
-    let profiles = state.profiles();
-    Html(html::picker(
-        &profiles,
-        None,
-        profiles.len() < MAX_PROFILES_PER_USER,
-    ))
+async fn profiles_page(State(state): State<AppState>) -> Response {
+    match state.profiles() {
+        Ok(profiles) => Html(html::picker(
+            &profiles,
+            None,
+            profiles.len() < MAX_PROFILES_PER_USER,
+        ))
+        .into_response(),
+        Err(_) => read_error(),
+    }
 }
 
 #[derive(Deserialize)]
@@ -121,10 +131,7 @@ struct NewProfile {
     avatar_key: String,
 }
 
-async fn create_profile(
-    State(state): State<AppState>,
-    Form(form): Form<NewProfile>,
-) -> Html<String> {
+async fn create_profile(State(state): State<AppState>, Form(form): Form<NewProfile>) -> Response {
     let name = form.name.trim().to_string();
     let avatar_key = if AVATARS.contains(&form.avatar_key.as_str()) {
         form.avatar_key
@@ -142,13 +149,17 @@ async fn create_profile(
             Err(err) => Some(format!("Không lưu được hồ sơ: {err:?}")),
         }
     };
-    let profiles = list_profiles(&db, state.user_id).expect("list profiles");
+    let profiles = match list_profiles(&db, state.user_id) {
+        Ok(profiles) => profiles,
+        Err(_) => return read_error(),
+    };
     drop(db);
     Html(html::picker(
         &profiles,
         error.as_deref(),
         profiles.len() < MAX_PROFILES_PER_USER,
     ))
+    .into_response()
 }
 
 /// A page for something that does not exist is a 404, not a valid page.
@@ -156,16 +167,25 @@ fn not_found(body: String) -> Response {
     (StatusCode::NOT_FOUND, Html(body)).into_response()
 }
 
+/// A read failure is a 500 page with a way back, never a dropped connection.
+fn read_error() -> Response {
+    (StatusCode::INTERNAL_SERVER_ERROR, Html(html::read_failed())).into_response()
+}
+
 async fn open_profile(State(state): State<AppState>, Path(id): Path<i64>) -> Response {
     match state.profile(id) {
-        Some(profile) => {
+        Ok(Some(profile)) => {
             let stars = {
                 let db = state.db();
-                crate::store::total_stars(&db, profile.id).unwrap_or(0)
+                match crate::store::total_stars(&db, profile.id) {
+                    Ok(stars) => stars,
+                    Err(_) => return read_error(),
+                }
             };
             Html(html::home(&profile, stars)).into_response()
         }
-        None => not_found(html::missing_profile()),
+        Ok(None) => not_found(html::missing_profile()),
+        Err(_) => read_error(),
     }
 }
 
@@ -173,18 +193,26 @@ async fn subject_page(
     State(state): State<AppState>,
     Path((id, slug)): Path<(i64, String)>,
 ) -> Response {
-    let Some(profile) = state.profile(id) else {
-        return not_found(html::missing_profile());
+    let profile = match state.profile(id) {
+        Ok(Some(profile)) => profile,
+        Ok(None) => return not_found(html::missing_profile()),
+        Err(_) => return read_error(),
     };
     let Some(subject) = Subject::parse(&slug) else {
         return not_found(html::missing_subject());
     };
     let lessons = for_subject(subject);
-    let done = state.done_lesson_ids(profile.id);
+    let done = match state.done_lesson_ids(profile.id) {
+        Ok(done) => done,
+        Err(_) => return read_error(),
+    };
     let start_id = {
         let db = state.db();
         let ids: Vec<u32> = lessons.iter().map(|l| l.id).collect();
-        next_lesson_id(&db, profile.id, &ids).expect("next lesson")
+        match next_lesson_id(&db, profile.id, &ids) {
+            Ok(start_id) => start_id,
+            Err(_) => return read_error(),
+        }
     };
     Html(html::subject_page(
         &profile, subject, &lessons, &done, start_id,
@@ -193,13 +221,23 @@ async fn subject_page(
 }
 
 async fn report_page(State(state): State<AppState>, Path(id): Path<i64>) -> Response {
-    let Some(profile) = state.profile(id) else {
-        return not_found(html::missing_profile());
+    let profile = match state.profile(id) {
+        Ok(Some(profile)) => profile,
+        Ok(None) => return not_found(html::missing_profile()),
+        Err(_) => return read_error(),
     };
-    let db = state.db();
-    let progress = crate::store::progress_for_profile(&db, profile.id).expect("read progress");
-    let days = crate::store::daily_activity(&db, profile.id, 14).expect("daily activity");
-    drop(db);
+    let (progress, days) = {
+        let db = state.db();
+        let progress = match crate::store::progress_for_profile(&db, profile.id) {
+            Ok(progress) => progress,
+            Err(_) => return read_error(),
+        };
+        let days = match crate::store::daily_activity(&db, profile.id, 14) {
+            Ok(days) => days,
+            Err(_) => return read_error(),
+        };
+        (progress, days)
+    };
 
     let per_subject: Vec<(Subject, usize, usize)> = Subject::all()
         .iter()
@@ -233,7 +271,10 @@ async fn lesson_page(
     Path((id, lesson_id)): Path<(i64, u32)>,
     Query(query): Query<LessonQuery>,
 ) -> Response {
-    let flash = result_flash(&state, id, lesson_id, &query);
+    let flash = match result_flash(&state, id, lesson_id, &query) {
+        Ok(flash) => flash,
+        Err(_) => return read_error(),
+    };
     render_lesson(&state, id, lesson_id, flash)
 }
 
@@ -245,14 +286,14 @@ fn result_flash(
     profile_id: i64,
     lesson_id: u32,
     query: &LessonQuery,
-) -> Option<Flash> {
+) -> Result<Option<Flash>, StoreError> {
     match query.kq.as_deref() {
-        Some("sai") => Some(Flash::Wrong),
+        Some("sai") => Ok(Some(Flash::Wrong)),
         Some("dung") => {
             let tiep = parse_tiep(query.tiep.as_deref());
             finished_correct_flash(state, profile_id, lesson_id, tiep)
         }
-        _ => None,
+        _ => Ok(None),
     }
 }
 
@@ -268,17 +309,19 @@ fn finished_correct_flash(
     profile_id: i64,
     lesson_id: u32,
     tiep: Option<u32>,
-) -> Option<Flash> {
-    let lesson = by_id(lesson_id)?;
-    let done = state.done_lesson_ids(profile_id);
+) -> Result<Option<Flash>, StoreError> {
+    let Some(lesson) = by_id(lesson_id) else {
+        return Ok(None);
+    };
+    let done = state.done_lesson_ids(profile_id)?;
     if !done.contains(&lesson_id) {
-        return None;
+        return Ok(None);
     }
     let next_id = match tiep {
         Some(id) if lesson_in_subject(id, lesson.subject) => Some(id),
         _ => next_unfinished_id(&for_subject(lesson.subject), lesson_id, &done),
     };
-    Some(Flash::Correct { next_id })
+    Ok(Some(Flash::Correct { next_id }))
 }
 
 fn lesson_in_subject(lesson_id: u32, subject: Subject) -> bool {
@@ -299,8 +342,10 @@ async fn answer_lesson(
     // parent's own profiles before anything is written to it. A profile that is
     // not ours and a lesson that does not exist answer the same way, so the
     // response never says which of the two was wrong.
-    if state.profile(id).is_none() {
-        return not_found(html::missing_profile());
+    match state.profile(id) {
+        Ok(Some(_)) => {}
+        Ok(None) => return not_found(html::missing_profile()),
+        Err(_) => return read_error(),
     }
     let Some(lesson) = by_id(lesson_id) else {
         return not_found(html::missing());
@@ -317,7 +362,10 @@ async fn answer_lesson(
         }
     }
     let flash = if correct {
-        let mut done = state.done_lesson_ids(id);
+        let mut done = match state.done_lesson_ids(id) {
+            Ok(done) => done,
+            Err(_) => return read_error(),
+        };
         done.insert(lesson_id);
         Flash::Correct {
             next_id: next_unfinished_id(&for_subject(lesson.subject), lesson_id, &done),
@@ -366,8 +414,10 @@ fn render_lesson(
     lesson_id: u32,
     flash: Option<Flash>,
 ) -> Response {
-    let Some(profile) = state.profile(profile_id) else {
-        return not_found(html::missing_profile());
+    let profile = match state.profile(profile_id) {
+        Ok(Some(profile)) => profile,
+        Ok(None) => return not_found(html::missing_profile()),
+        Err(_) => return read_error(),
     };
     let Some(lesson) = by_id(lesson_id) else {
         return not_found(html::missing());
@@ -379,7 +429,10 @@ fn render_lesson(
         .unwrap_or(0);
     let stars = {
         let db = state.db();
-        crate::store::total_stars(&db, profile_id).unwrap_or(0)
+        match crate::store::total_stars(&db, profile_id) {
+            Ok(stars) => stars,
+            Err(_) => return read_error(),
+        }
     };
     Html(html::lesson_page(
         &profile,
@@ -1172,5 +1225,51 @@ mod tests {
         assert!(html.contains("Không lưu được kết quả"));
         assert!(!html.contains("Giỏi quá"));
         assert!(!html.contains("+1 sao"));
+    }
+
+    #[tokio::test]
+    async fn unreadable_database_is_a_500_page_not_a_dropped_connection() {
+        let state = AppState::in_memory().unwrap();
+        {
+            let db = state.db();
+            db.execute_batch("DROP TABLE profiles;").unwrap();
+        }
+
+        let response = app(state)
+            .oneshot(
+                Request::builder()
+                    .uri("/profiles")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        let html = body_of(response).await;
+        assert!(html.contains("Không đọc được dữ liệu."));
+        assert!(html.contains("Về chọn hồ sơ"));
+    }
+
+    #[tokio::test]
+    async fn lesson_page_read_failure_is_a_500_page() {
+        let state = AppState::in_memory().unwrap();
+        let router = add_an(app(state.clone())).await;
+        {
+            let db = state.db();
+            db.execute_batch("DROP TABLE progress;").unwrap();
+        }
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/profiles/1/bai/1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        let html = body_of(response).await;
+        assert!(html.contains("Không đọc được dữ liệu."));
     }
 }
