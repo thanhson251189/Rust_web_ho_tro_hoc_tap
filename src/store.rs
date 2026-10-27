@@ -3,6 +3,11 @@ use std::path::Path;
 
 pub const MAX_PROFILES_PER_USER: usize = 2;
 
+/// Mirrors the create form's `maxlength`, so the server refuses a name the
+/// browser would have stopped typing anyway. Counted in chars, not bytes: a
+/// Vietnamese name with diacritics is not shorter than its letters.
+pub const MAX_NAME_CHARS: usize = 24;
+
 /// Answers are stored in UTC, but a Vietnamese parent reads the report in local
 /// time. Vietnam is UTC+7 all year (no DST), so one fixed offset is enough to
 /// move a stored stamp onto the calendar day the parent actually saw.
@@ -27,6 +32,7 @@ pub struct Profile {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StoreError {
     ProfileLimit,
+    NameTooLong,
     UserNotFound,
     Db(String),
 }
@@ -305,6 +311,9 @@ pub fn add_profile(
     name: &str,
     avatar_key: &str,
 ) -> Result<Profile, StoreError> {
+    if name.chars().count() > MAX_NAME_CHARS {
+        return Err(StoreError::NameTooLong);
+    }
     let exists: Option<i64> = conn
         .query_row(
             "SELECT id FROM users WHERE id = ?1",
@@ -696,5 +705,25 @@ mod tests {
         }
 
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn name_limit_counts_chars_and_matches_the_form() {
+        let conn = open_memory().unwrap();
+        let parent = user(&conn);
+        let longest: String = "a".repeat(MAX_NAME_CHARS);
+        assert!(add_profile(&conn, parent.id, &longest, "robot").is_ok());
+
+        let too_long: String = "a".repeat(MAX_NAME_CHARS + 1);
+        assert_eq!(
+            add_profile(&conn, parent.id, &too_long, "cat"),
+            Err(StoreError::NameTooLong)
+        );
+        assert_eq!(list_profiles(&conn, parent.id).unwrap().len(), 1);
+
+        // Diacritics count as one char each, so a Vietnamese name of the same
+        // letter count still fits.
+        let vietnamese: String = "ế".repeat(MAX_NAME_CHARS);
+        assert!(add_profile(&conn, parent.id, &vietnamese, "fox").is_ok());
     }
 }
