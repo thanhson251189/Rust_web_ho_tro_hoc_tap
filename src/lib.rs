@@ -1204,7 +1204,7 @@ mod tests {
             .unwrap();
         assert_eq!(retry.status(), StatusCode::OK);
         let html = body_of(retry).await;
-        assert!(html.contains("Chưa đúng. Thử lại nhé"));
+        assert!(html.contains("Đáp án đúng là"));
     }
 
     #[tokio::test]
@@ -1273,7 +1273,7 @@ mod tests {
         assert!(!still_open.contains("Giỏi quá"));
         assert!(!still_open.contains("confetti-anchor"));
         let retry = get_html(&router, "/profiles/1/bai/3?kq=sai").await;
-        assert!(retry.contains("Chưa đúng. Thử lại nhé"));
+        assert!(retry.contains("Đáp án đúng là"));
 
         let posted = post_choice(&router, "/profiles/1/bai/1", "choice=0").await;
         assert_eq!(posted.status(), StatusCode::SEE_OTHER);
@@ -1441,6 +1441,23 @@ mod tests {
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
         let html = body_of(response).await;
         assert!(html.contains("Không đọc được dữ liệu."));
+    }
+
+    #[tokio::test]
+    async fn a_wrong_answer_names_the_right_one_and_still_allows_a_retry() {
+        let state = AppState::in_memory().unwrap();
+        let router = add_an(app(state.clone())).await;
+        let lesson = crate::lessons::by_id(1).unwrap();
+        let right = lesson.choices[lesson.correct];
+        let wrong = format!("choice={}", (lesson.correct + 1) % 4);
+
+        let response = post_choice(&router, "/profiles/1/bai/1", &wrong).await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        let html = body_of(response).await;
+        assert!(html.contains("Đáp án đúng là"));
+        assert!(html.contains(&format!("<b>{right}</b>")));
+        assert!(html.contains("Nghe đáp án"));
+        assert_eq!(html.matches("name=choice").count(), 4, "vẫn thử lại được");
     }
 
     #[tokio::test]
