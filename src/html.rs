@@ -1211,6 +1211,16 @@ pub fn write_failed() -> String {
     )
 }
 
+/// Shown when the database cannot be read. The page keeps the way out, so a
+/// read failure never leaves the parent on a dropped connection.
+pub fn read_failed() -> String {
+    page(
+        "Không đọc được",
+        "<h1>Không đọc được dữ liệu.</h1><p class=sub>Bố mẹ thử lại giúp bé nhé.</p>\
+<p class=sub><a href=/profiles>Về chọn hồ sơ</a></p>",
+    )
+}
+
 pub fn lesson_page(
     profile: &Profile,
     lesson: &Lesson,
