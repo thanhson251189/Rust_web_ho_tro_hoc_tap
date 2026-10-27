@@ -99,11 +99,11 @@ pub fn app(state: AppState) -> Router {
     Router::new()
         .route("/", get(home))
         .route("/profiles", get(profiles_page).post(create_profile))
-        .route("/profiles/:id", get(open_profile))
-        .route("/profiles/:id/bao-cao", get(report_page))
-        .route("/profiles/:id/mon/:slug", get(subject_page))
+        .route("/profiles/{id}", get(open_profile))
+        .route("/profiles/{id}/bao-cao", get(report_page))
+        .route("/profiles/{id}/mon/{slug}", get(subject_page))
         .route(
-            "/profiles/:id/bai/:lesson_id",
+            "/profiles/{id}/bai/{lesson_id}",
             get(lesson_page).post(answer_lesson),
         )
         .fallback(unknown_route)
