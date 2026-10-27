@@ -378,9 +378,9 @@ const SCRIPT: &str = r##"
   // Reading Vietnamese with an English voice is worse than not reading at all,
   // so the button steps aside for a line the parent can act on.
   function showVoiceNotice() {
-    var btn = document.querySelector(".speak");
+    var btns = document.querySelectorAll(".speak");
     var note = document.querySelector(".no-vi-voice");
-    if (btn) btn.hidden = VI_MISSING;
+    Array.prototype.forEach.call(btns, function (b) { b.hidden = VI_MISSING; });
     if (note) note.hidden = !VI_MISSING;
   }
   // Put the reader's own system first; an unknown userAgent keeps the order.
@@ -1265,7 +1265,13 @@ pub fn lesson_page(
             )
         }
         Some(Flash::Wrong) => {
-            "<div class='banner bad'>Chưa đúng. Thử lại nhé, bé ơi!</div>".to_string()
+            // A retry is only useful if the child can see what the right answer
+            // was; otherwise the same guess comes back.
+            let answer = escape(lesson.choices[lesson.correct]);
+            format!(
+                "<div class='banner bad'>Chưa đúng. Đáp án đúng là <b>{answer}</b>. Thử lại nhé, bé ơi!</div>\
+<button type=button class=speak data-say='Đáp án đúng là {answer}'>🔊 Nghe đáp án</button>"
+            )
         }
         None => String::new(),
     };
@@ -1536,7 +1542,7 @@ mod tests {
             SCRIPT.contains("vs.length > 0 && !vi"),
             "danh sách giọng rỗng lúc mới tải không được coi là thiếu giọng vi"
         );
-        assert!(SCRIPT.contains("btn.hidden = VI_MISSING"));
+        assert!(SCRIPT.contains("b.hidden = VI_MISSING"));
         assert!(SCRIPT.contains("note.hidden = !VI_MISSING"));
         assert!(SCRIPT.matches("onvoiceschanged").count() >= 2);
 
