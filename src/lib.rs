@@ -6,7 +6,7 @@ use crate::html::Flash;
 use crate::lessons::{by_id, for_subject, Lesson, Subject};
 use crate::store::{
     add_profile, list_profiles, next_lesson_id, record_answer, upsert_user, Profile, StoreError,
-    MAX_PROFILES_PER_USER,
+    MAX_NAME_CHARS, MAX_PROFILES_PER_USER,
 };
 use axum::{
     extract::{Path, Query, State},
@@ -147,6 +147,9 @@ async fn create_profile(State(state): State<AppState>, Form(form): Form<NewProfi
             .map(|_| ())
             .map_err(|err| match err {
                 StoreError::ProfileLimit => "Tối đa 2 hồ sơ.".to_string(),
+                StoreError::NameTooLong => {
+                    format!("Tên hồ sơ dài quá {MAX_NAME_CHARS} ký tự.")
+                }
                 err => format!("Không lưu được hồ sơ: {err:?}"),
             })
     };
@@ -618,6 +621,40 @@ mod tests {
             .unwrap();
         let html = body_of(picker).await;
         assert_eq!(html.matches("<span class=name>").count(), 1);
+    }
+
+    #[tokio::test]
+    async fn overlong_profile_name_is_rejected_with_a_message() {
+        let app = test_app();
+        let too_long = "a".repeat(25);
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/profiles")
+                    .header("content-type", form_type())
+                    .body(Body::from(format!("name={too_long}&avatar_key=cat")))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let html = body_of(response).await;
+        assert!(html.contains("Tên hồ sơ dài quá 24 ký tự."));
+        assert_eq!(html.matches("<span class=name>").count(), 0);
+
+        let picker = app
+            .oneshot(
+                Request::builder()
+                    .uri("/profiles")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let html = body_of(picker).await;
+        assert_eq!(html.matches("<span class=name>").count(), 0);
     }
 
     #[tokio::test]
