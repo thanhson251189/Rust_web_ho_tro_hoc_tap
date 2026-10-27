@@ -244,8 +244,32 @@ async fn subject_page(
             Err(_) => return read_error(),
         }
     };
+    // A lesson the child got wrong but has not yet mastered is worth another
+    // visit, most-missed first. Mastered lessons drop out even if they were
+    // once wrong, so the list shrinks as the child improves.
+    let practice: Vec<(&Lesson, i64)> = {
+        let db = state.db();
+        let progress = match crate::store::progress_for_profile(&db, profile.id) {
+            Ok(progress) => progress,
+            Err(_) => return read_error(),
+        };
+        let mut rows: Vec<(&Lesson, i64)> = lessons
+            .iter()
+            .filter(|lesson| !mastered.contains(&lesson.id))
+            .filter_map(|lesson| {
+                progress
+                    .iter()
+                    .find(|p| p.lesson_id == lesson.id)
+                    .filter(|p| p.wrong_count > 0)
+                    .map(|p| (*lesson, p.wrong_count))
+            })
+            .collect();
+        rows.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.id.cmp(&b.0.id)));
+        rows.truncate(5);
+        rows
+    };
     Html(html::subject_page(
-        &profile, subject, &lessons, &done, &mastered, start_id,
+        &profile, subject, &lessons, &done, &mastered, &practice, start_id,
     ))
     .into_response()
 }
@@ -1479,5 +1503,74 @@ mod tests {
         )
         .await;
         assert!(report.contains("Thành thạo: <b>1</b>/201"));
+    }
+
+    #[tokio::test]
+    async fn practice_list_shows_missed_lessons_and_drops_mastered_ones() {
+        let state = AppState::in_memory().unwrap();
+        let router = add_an(app(state.clone())).await;
+
+        let fresh = body_of(
+            router
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri("/profiles/1/mon/toan")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap(),
+        )
+        .await;
+        assert!(!fresh.contains("Luyện bài bé hay sai"));
+
+        let first = crate::lessons::by_id(1).unwrap();
+        let wrong_first = format!("choice={}", (first.correct + 1) % 4);
+        let second = crate::lessons::by_id(2).unwrap();
+        let wrong_second = format!("choice={}", (second.correct + 1) % 4);
+        let _ = post_choice(&router, "/profiles/1/bai/1", &wrong_first).await;
+        let _ = post_choice(&router, "/profiles/1/bai/1", &wrong_first).await;
+        let _ = post_choice(&router, "/profiles/1/bai/2", &wrong_second).await;
+
+        let toan = body_of(
+            router
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri("/profiles/1/mon/toan")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap(),
+        )
+        .await;
+        assert!(toan.contains("Luyện bài bé hay sai"));
+        assert!(toan.contains("sai 2 lần"));
+        assert!(toan.contains("sai 1 lần"));
+
+        // A lesson answered correctly on two Vietnam days is mastered, so it
+        // leaves the practice list; the lesson with one miss stays.
+        {
+            let db = state.db();
+            crate::store::record_answer_at(&db, 1, 1, true, "2026-09-07 10:00:00").unwrap();
+            crate::store::record_answer_at(&db, 1, 1, true, "2026-09-08 10:00:00").unwrap();
+        }
+        let toan = body_of(
+            router
+                .oneshot(
+                    Request::builder()
+                        .uri("/profiles/1/mon/toan")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap(),
+        )
+        .await;
+        assert!(toan.contains("Luyện bài bé hay sai"));
+        assert!(!toan.contains("sai 2 lần"));
+        assert!(toan.contains("sai 1 lần"));
     }
 }
