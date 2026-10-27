@@ -93,6 +93,11 @@ impl AppState {
             .map(|p| p.lesson_id)
             .collect())
     }
+
+    fn correct_answers(&self, profile_id: i64, lesson_id: u32) -> Result<i64, StoreError> {
+        let db = self.db();
+        crate::store::correct_answers_for(&db, profile_id, lesson_id)
+    }
 }
 
 pub fn app(state: AppState) -> Router {
@@ -224,6 +229,13 @@ async fn subject_page(
         Ok(done) => done,
         Err(_) => return read_error(),
     };
+    let mastered = {
+        let db = state.db();
+        match crate::store::mastered_lesson_ids(&db, profile.id) {
+            Ok(mastered) => mastered,
+            Err(_) => return read_error(),
+        }
+    };
     let start_id = {
         let db = state.db();
         let ids: Vec<u32> = lessons.iter().map(|l| l.id).collect();
@@ -233,7 +245,7 @@ async fn subject_page(
         }
     };
     Html(html::subject_page(
-        &profile, subject, &lessons, &done, start_id,
+        &profile, subject, &lessons, &done, &mastered, start_id,
     ))
     .into_response()
 }
@@ -256,6 +268,13 @@ async fn report_page(State(state): State<AppState>, Path(id): Path<i64>) -> Resp
         };
         (progress, days)
     };
+    let mastered_total = {
+        let db = state.db();
+        match crate::store::mastered_lesson_ids(&db, profile.id) {
+            Ok(mastered) => mastered.iter().filter(|id| by_id(**id).is_some()).count(),
+            Err(_) => return read_error(),
+        }
+    };
 
     let per_subject: Vec<(Subject, usize, usize)> = Subject::all()
         .iter()
@@ -275,7 +294,14 @@ async fn report_page(State(state): State<AppState>, Path(id): Path<i64>) -> Resp
         .collect();
     hard.sort_by_key(|l| l.id);
     let hard: Vec<&Lesson> = hard.into_iter().take(8).collect();
-    Html(html::report_page(&profile, &per_subject, &days, &hard)).into_response()
+    Html(html::report_page(
+        &profile,
+        &per_subject,
+        mastered_total,
+        &days,
+        &hard,
+    ))
+    .into_response()
 }
 
 #[derive(Deserialize)]
@@ -339,7 +365,8 @@ fn finished_correct_flash(
         Some(id) if lesson_in_subject(id, lesson.subject) => Some(id),
         _ => next_unfinished_id(&for_subject(lesson.subject), lesson_id, &done),
     };
-    Ok(Some(Flash::Correct { next_id }))
+    let star = state.correct_answers(profile_id, lesson_id)? == 1;
+    Ok(Some(Flash::Correct { next_id, star }))
 }
 
 fn lesson_in_subject(lesson_id: u32, subject: Subject) -> bool {
@@ -369,16 +396,19 @@ async fn answer_lesson(
         return not_found(html::missing());
     };
     let correct = form.choice == lesson.correct;
-    {
+    let progress = {
         let db = state.db();
-        if record_answer(&db, id, lesson_id, correct).is_err() {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Html(html::write_failed()),
-            )
-                .into_response();
+        match record_answer(&db, id, lesson_id, correct) {
+            Ok(progress) => progress,
+            Err(_) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Html(html::write_failed()),
+                )
+                    .into_response();
+            }
         }
-    }
+    };
     let flash = if correct {
         let mut done = match state.done_lesson_ids(id) {
             Ok(done) => done,
@@ -387,6 +417,9 @@ async fn answer_lesson(
         done.insert(lesson_id);
         Flash::Correct {
             next_id: next_unfinished_id(&for_subject(lesson.subject), lesson_id, &done),
+            // The lesson's star is earned by its first correct answer, so a
+            // repeat answer must not promise another one.
+            star: progress.correct_count == 1,
         }
     } else {
         Flash::Wrong
@@ -396,8 +429,11 @@ async fn answer_lesson(
     let location = match flash {
         Flash::Correct {
             next_id: Some(next),
+            ..
         } => format!("/profiles/{id}/bai/{lesson_id}?kq=dung&tiep={next}"),
-        Flash::Correct { next_id: None } => format!("/profiles/{id}/bai/{lesson_id}?kq=dung"),
+        Flash::Correct { next_id: None, .. } => {
+            format!("/profiles/{id}/bai/{lesson_id}?kq=dung")
+        }
         Flash::Wrong => format!("/profiles/{id}/bai/{lesson_id}?kq=sai"),
     };
     (
@@ -1055,11 +1091,7 @@ mod tests {
         body_of(response).await
     }
 
-    async fn post_choice(
-        router: &axum::Router,
-        uri: &str,
-        body: &'static str,
-    ) -> axum::response::Response {
+    async fn post_choice(router: &axum::Router, uri: &str, body: &str) -> axum::response::Response {
         router
             .clone()
             .oneshot(
@@ -1067,7 +1099,7 @@ mod tests {
                     .method("POST")
                     .uri(uri)
                     .header("content-type", form_type())
-                    .body(Body::from(body))
+                    .body(Body::from(body.to_owned()))
                     .unwrap(),
             )
             .await
@@ -1385,5 +1417,67 @@ mod tests {
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
         let html = body_of(response).await;
         assert!(html.contains("Không đọc được dữ liệu."));
+    }
+
+    #[tokio::test]
+    async fn repeat_correct_answer_does_not_promise_a_second_star() {
+        let state = AppState::in_memory().unwrap();
+        let router = add_an(app(state.clone())).await;
+        let correct = crate::lessons::by_id(1).unwrap().correct;
+        let body = format!("choice={correct}");
+
+        let first = body_of(post_choice(&router, "/profiles/1/bai/1", &body).await).await;
+        assert!(first.contains("+1 sao"));
+
+        let second = body_of(post_choice(&router, "/profiles/1/bai/1", &body).await).await;
+        assert!(
+            !second.contains("+1 sao"),
+            "lần đúng thứ hai không thêm sao"
+        );
+        assert!(second.contains("Giỏi quá"));
+
+        let db = state.db();
+        assert_eq!(crate::store::total_stars(&db, 1).unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_lesson_is_mastered_only_after_a_correct_answer_on_another_day() {
+        let state = AppState::in_memory().unwrap();
+        let router = add_an(app(state.clone())).await;
+        {
+            let db = state.db();
+            crate::store::record_answer_at(&db, 1, 1, true, "2026-09-07 10:00:00").unwrap();
+            crate::store::record_answer_at(&db, 1, 1, true, "2026-09-08 10:00:00").unwrap();
+        }
+
+        let toan = body_of(
+            router
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri("/profiles/1/mon/toan")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap(),
+        )
+        .await;
+        assert!(toan.contains("Thành thạo: <b>1</b>/62"));
+        assert!(toan.contains("aria-label='đã thành thạo'"));
+
+        let report = body_of(
+            router
+                .oneshot(
+                    Request::builder()
+                        .uri("/profiles/1/bao-cao")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap(),
+        )
+        .await;
+        assert!(report.contains("Thành thạo: <b>1</b>/201"));
     }
 }
