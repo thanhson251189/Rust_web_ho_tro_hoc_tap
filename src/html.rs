@@ -1055,6 +1055,7 @@ pub fn subject_page(
     lessons: &[&Lesson],
     done: &std::collections::HashSet<u32>,
     mastered: &std::collections::HashSet<u32>,
+    practice: &[(&Lesson, i64)],
     start_id: Option<u32>,
 ) -> String {
     let mut list = String::new();
@@ -1104,12 +1105,31 @@ pub fn subject_page(
             mastered_count = mastered_count,
         ),
     };
+    let practice_block = if practice.is_empty() {
+        String::new()
+    } else {
+        let mut chips = String::new();
+        for (lesson, wrong) in practice {
+            chips.push_str(&format!(
+                "<a class=item href=/profiles/{pid}/bai/{lid}><span>{title}</span>\
+<span class='n warn'>sai {wrong} lần</span></a>",
+                pid = profile.id,
+                lid = lesson.id,
+                title = escape(lesson.title),
+                wrong = wrong,
+            ));
+        }
+        format!(
+            "<h2 class=unit>Luyện bài bé hay sai</h2><div class=lessons>{chips}</div>\
+<p class=hint-line>Chạm vào bài để luyện lại cùng bé.</p>"
+        )
+    };
     page(
         subject.title(),
         &format!(
             "<div class=nav><a href=/profiles/{pid}>Môn học</a></div>\
 <h1>{title}</h1><p class=sub>Lớp 1 · {hint} · {count} bài</p>\
-{start}<div class=lessons>{list}</div>",
+{start}{practice_block}<div class=lessons>{list}</div>",
             pid = profile.id,
             title = subject.title(),
             hint = subject.hint(),
@@ -1716,13 +1736,14 @@ mod tests {
             picker(std::slice::from_ref(&profile), None, true),
             picker(&[], Some("Nhập tên hồ sơ."), true),
             home(&profile, 3),
-            subject_page(&profile, Subject::Toan, &[], &done, &mastered, None),
+            subject_page(&profile, Subject::Toan, &[], &done, &mastered, &[], None),
             subject_page(
                 &profile,
                 Subject::Toan,
                 &for_subject(Subject::Toan),
                 &done,
                 &mastered,
+                &[],
                 Some(1),
             ),
             report_page(
